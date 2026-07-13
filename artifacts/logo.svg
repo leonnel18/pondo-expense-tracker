@@ -1,0 +1,12 @@
+<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Pondo — Wallet Mark -->
+  <!-- Rounded rectangle wallet body with a subtle fold/clasp line -->
+  <rect x="24" y="36" width="80" height="56" rx="12" fill="#1F7A64"/>
+  <!-- Wallet fold line — horizontal clasp suggesting a bifold wallet -->
+  <rect x="24" y="64" width="80" height="4" rx="2" fill="#154E42" opacity="0.5"/>
+  <!-- Clasp/button on the right side -->
+  <rect x="88" y="56" width="16" height="16" rx="4" fill="#154E42" opacity="0.6"/>
+  <rect x="92" y="60" width="8" height="8" rx="2" fill="#E8F5F2" opacity="0.9"/>
+  <!-- Top flap slightly lighter to suggest depth -->
+  <rect x="24" y="36" width="80" height="28" rx="12" fill="#2A9A7D" opacity="0.3"/>
+</svg>

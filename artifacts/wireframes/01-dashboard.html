@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Household Tracker — Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: system-ui, sans-serif; }
+    .donut-svg { transform: rotate(-90deg); }
+    .donut-svg circle { fill: none; stroke-width: 28; }
+  </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+<!-- Sidebar -->
+<aside class="fixed left-0 top-0 h-screen w-64 bg-gray-900 text-gray-300 flex flex-col" aria-label="Main navigation">
+  <div class="px-6 py-5 text-lg font-semibold text-white border-b border-gray-700">Household Tracker</div>
+  <nav class="flex-1 py-4" role="navigation">
+    <a href="01-dashboard.html" class="flex items-center gap-3 px-6 py-3 bg-gray-200 text-gray-900 font-medium" aria-current="page">📊 Dashboard</a>
+    <a href="02-entries.html" class="flex items-center gap-3 px-6 py-3 hover:bg-gray-800">📋 Entries</a>
+    <a href="04-accounts.html" class="flex items-center gap-3 px-6 py-3 hover:bg-gray-800">🏦 Accounts</a>
+    <a href="07-categories.html" class="flex items-center gap-3 px-6 py-3 hover:bg-gray-800">🏷️ Categories</a>
+    <a href="#" class="flex items-center gap-3 px-6 py-3 hover:bg-gray-800">📤 Export</a>
+  </nav>
+  <div class="px-6 py-4 text-xs text-gray-500 border-t border-gray-700">v1.0 · Wireframe</div>
+</aside>
+
+<!-- Main content -->
+<main class="ml-64 min-h-screen">
+  <!-- Header -->
+  <header class="bg-white shadow-sm px-8 py-4 flex items-center justify-between" role="banner">
+    <h1 class="text-xl font-semibold text-gray-800">Dashboard</h1>
+    <div class="flex items-center gap-3">
+      <label for="time-filter" class="text-sm text-gray-500">Period:</label>
+      <select id="time-filter" class="border border-gray-300 rounded-md px-3 py-1.5 text-sm bg-white" aria-label="Time filter">
+        <option>This Month ▾</option>
+        <option>Last Month</option>
+        <option>Last 3 Months</option>
+        <option>This Year</option>
+        <option>All Time</option>
+      </select>
+    </div>
+  </header>
+
+  <div class="p-8 space-y-6">
+    <!-- Row 1: KPI Cards -->
+    <section class="grid grid-cols-1 md:grid-cols-4 gap-4" aria-label="Key Performance Indicators">
+      <!-- Total Income -->
+      <div class="bg-white rounded-lg shadow-sm p-5 border border-gray-200">
+        <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Total Income</p>
+        <p class="text-2xl font-bold text-gray-800">₱45,000</p>
+        <p class="text-xs text-gray-400 mt-1">This month</p>
+      </div>
+      <!-- Total Expenses -->
+      <div class="bg-white rounded-lg shadow-sm p-5 border border-gray-200">
+        <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Total Expenses</p>
+        <p class="text-2xl font-bold text-gray-800">₱28,300</p>
+        <p class="text-xs text-gray-400 mt-1">This month</p>
+      </div>
+      <!-- Net Balance -->
+      <div class="bg-white rounded-lg shadow-sm p-5 border border-gray-200">
+        <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Net Balance</p>
+        <p class="text-2xl font-bold text-gray-800">₱16,700</p>
+        <p class="text-xs text-gray-400 mt-1">Income − Expenses</p>
+      </div>
+      <!-- MoM Comparison -->
+      <div class="bg-white rounded-lg shadow-sm p-5 border border-gray-200">
+        <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">vs Last Month</p>
+        <div class="space-y-1 mt-1">
+          <p class="text-sm text-gray-700">Income <span class="font-semibold">▲ 12%</span></p>
+          <p class="text-sm text-gray-700">Expenses <span class="font-semibold">▼ 5%</span></p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Row 2: Charts -->
+    <section class="grid grid-cols-1 lg:grid-cols-3 gap-6" aria-label="Charts">
+      <!-- Expense Breakdown Donut -->
+      <div class="lg:col-span-2 bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+        <h2 class="text-sm font-semibold text-gray-700 mb-4">Expense Breakdown</h2>
+        <div class="flex items-center gap-8">
+          <!-- Donut SVG -->
+          <div class="relative flex-shrink-0">
+            <svg class="donut-svg" width="180" height="180" viewBox="0 0 180 180" role="img" aria-label="Expense breakdown donut chart">
+              <!-- Total = 28,300. Circumference = 2*PI*60 ≈ 376.99 -->
+              <!-- Food & Dining: 8500/28300 = 30.04% → 113.3 -->
+              <circle cx="90" cy="90" r="60" stroke="#374151" stroke-dasharray="113.3 263.69" stroke-dashoffset="0"></circle>
+              <!-- Housing & Utilities: 7000/28300 = 24.73% → 93.2 -->
+              <circle cx="90" cy="90" r="60" stroke="#4B5563" stroke-dasharray="93.2 283.79" stroke-dashoffset="-113.3"></circle>
+              <!-- Transportation: 4200/28300 = 14.84% → 55.9 -->
+              <circle cx="90" cy="90" r="60" stroke="#6B7280" stroke-dasharray="55.9 321.09" stroke-dashoffset="-206.5"></circle>
+              <!-- Shopping: 3800/28300 = 13.43% → 50.6 -->
+              <circle cx="90" cy="90" r="60" stroke="#9CA3AF" stroke-dasharray="50.6 326.39" stroke-dashoffset="-262.4"></circle>
+              <!-- Entertainment: 2100/28300 = 7.42% → 27.97 -->
+              <circle cx="90" cy="90" r="60" stroke="#D1D5DB" stroke-dasharray="27.97 349.02" stroke-dashoffset="-313.0"></circle>
+              <!-- Subscriptions: 1200/28300 = 4.24% → 15.97 -->
+              <circle cx="90" cy="90" r="60" stroke="#E5E7EB" stroke-dasharray="15.97 361.02" stroke-dashoffset="-340.97"></circle>
+              <!-- Health: 900/28300 = 3.18% → 11.99 -->
+              <circle cx="90" cy="90" r="60" stroke="#F3F4F6" stroke-dasharray="11.99 365.00" stroke-dashoffset="-356.94"></circle>
+              <!-- Other: 600/28300 = 2.12% → 7.99 -->
+              <circle cx="90" cy="90" r="60" stroke="#F9FAFB" stroke-dasharray="7.99 369.00" stroke-dashoffset="-368.93"></circle>
+            </svg>
+            <div class="absolute inset-0 flex flex-col items-center justify-center">
+              <p class="text-xs text-gray-400">Total</p>
+              <p class="text-lg font-bold text-gray-800">₱28,300</p>
+            </div>
+          </div>
+          <!-- Legend -->
+          <div class="flex-1 grid grid-cols-2 gap-x-4 gap-y-2 text-xs" role="list">
+            <div class="flex items-center gap-2" role="listitem"><span class="w-3 h-3 rounded-sm bg-gray-700"></span><span class="text-gray-700">Food & Dining</span><span class="ml-auto font-medium">₱8,500</span><span class="text-gray-400 w-10 text-right">30.0%</span></div>
+            <div class="flex items-center gap-2" role="listitem"><span class="w-3 h-3 rounded-sm bg-gray-600"></span><span class="text-gray-700">Housing & Utilities</span><span class="ml-auto font-medium">₱7,000</span><span class="text-gray-400 w-10 text-right">24.7%</span></div>
+            <div class="flex items-center gap-2" role="listitem"><span class="w-3 h-3 rounded-sm bg-gray-500"></span><span class="text-gray-700">Transportation</span><span class="ml-auto font-medium">₱4,200</span><span class="text-gray-400 w-10 text-right">14.8%</span></div>
+            <div class="flex items-center gap-2" role="listitem"><span class="w-3 h-3 rounded-sm bg-gray-400"></span><span class="text-gray-700">Shopping</span><span class="ml-auto font-medium">₱3,800</span><span class="text-gray-400 w-10 text-right">13.4%</span></div>
+            <div class="flex items-center gap-2" role="listitem"><span class="w-3 h-3 rounded-sm bg-gray-300"></span><span class="text-gray-700">Entertainment</span><span class="ml-auto font-medium">₱2,100</span><span class="text-gray-400 w-10 text-right">7.4%</span></div>
+            <div class="flex items-center gap-2" role="listitem"><span class="w-3 h-3 rounded-sm bg-gray-200"></span><span class="text-gray-700">Subscriptions</span><span class="ml-auto font-medium">₱1,200</span><span class="text-gray-400 w-10 text-right">4.2%</span></div>
+            <div class="flex items-center gap-2" role="listitem"><span class="w-3 h-3 rounded-sm bg-gray-100 border border-gray-300"></span><span class="text-gray-700">Health</span><span class="ml-auto font-medium">₱900</span><span class="text-gray-400 w-10 text-right">3.2%</span></div>
+            <div class="flex items-center gap-2" role="listitem"><span class="w-3 h-3 rounded-sm bg-white border border-gray-300"></span><span class="text-gray-700">Other</span><span class="ml-auto font-medium">₱600</span><span class="text-gray-400 w-10 text-right">2.1%</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Income Breakdown Donut -->
+      <div class="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+        <h2 class="text-sm font-semibold text-gray-700 mb-4">Income Breakdown</h2>
+        <div class="flex flex-col items-center gap-4">
+          <div class="relative flex-shrink-0">
+            <svg class="donut-svg" width="160" height="160" viewBox="0 0 160 160" role="img" aria-label="Income breakdown donut chart">
+              <!-- Total = 45,000. Circumference = 2*PI*55 ≈ 345.58 -->
+              <!-- Salary: 40000/45000 = 88.89% → 307.18 -->
+              <circle cx="80" cy="80" r="55" stroke="#374151" stroke-dasharray="307.18 38.40" stroke-dashoffset="0"></circle>
+              <!-- Freelance: 3500/45000 = 7.78% → 26.88 -->
+              <circle cx="80" cy="80" r="55" stroke="#6B7280" stroke-dasharray="26.88 318.70" stroke-dashoffset="-307.18"></circle>
+              <!-- Gift: 1000/45000 = 2.22% → 7.68 -->
+              <circle cx="80" cy="80" r="55" stroke="#9CA3AF" stroke-dasharray="7.68 337.90" stroke-dashoffset="-334.06"></circle>
+              <!-- Investment: 500/45000 = 1.11% → 3.84 -->
+              <circle cx="80" cy="80" r="55" stroke="#D1D5DB" stroke-dasharray="3.84 341.74" stroke-dashoffset="-341.74"></circle>
+            </svg>
+            <div class="absolute inset-0 flex flex-col items-center justify-center">
+              <p class="text-xs text-gray-400">Total</p>
+              <p class="text-base font-bold text-gray-800">₱45,000</p>
+            </div>
+          </div>
+          <div class="w-full space-y-2 text-xs" role="list">
+            <div class="flex items-center gap-2" role="listitem"><span class="w-3 h-3 rounded-sm bg-gray-700"></span><span class="text-gray-700">Salary</span><span class="ml-auto font-medium">₱40,000</span><span class="text-gray-400 w-10 text-right">88.9%</span></div>
+            <div class="flex items-center gap-2" role="listitem"><span class="w-3 h-3 rounded-sm bg-gray-500"></span><span class="text-gray-700">Freelance</span><span class="ml-auto font-medium">₱3,500</span><span class="text-gray-400 w-10 text-right">7.8%</span></div>
+            <div class="flex items-center gap-2" role="listitem"><span class="w-3 h-3 rounded-sm bg-gray-400"></span><span class="text-gray-700">Gift</span><span class="ml-auto font-medium">₱1,000</span><span class="text-gray-400 w-10 text-right">2.2%</span></div>
+            <div class="flex items-center gap-2" role="listitem"><span class="w-3 h-3 rounded-sm bg-gray-300"></span><span class="text-gray-700">Investment</span><span class="ml-auto font-medium">₱500</span><span class="text-gray-400 w-10 text-right">1.1%</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Row 3: Account Summary -->
+    <section aria-label="Account Summary">
+      <h2 class="text-sm font-semibold text-gray-700 mb-3">Account Summary</h2>
+      <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+        <!-- BPI Savings -->
+        <div class="bg-white rounded-lg shadow-sm p-4 border-2 border-gray-300">
+          <div class="flex items-center justify-between mb-2">
+            <p class="font-medium text-sm text-gray-800">BPI Savings</p>
+            <span class="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">Debit</span>
+          </div>
+          <p class="text-xl font-bold text-gray-800">₱42,500</p>
+          <p class="text-xs text-gray-400 mt-1">15 entries</p>
+        </div>
+        <!-- BDO Credit Card -->
+        <div class="bg-white rounded-lg shadow-sm p-4 border-2 border-dashed border-gray-400">
+          <div class="flex items-center justify-between mb-2">
+            <p class="font-medium text-sm text-gray-800">BDO Credit Card</p>
+            <span class="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">Credit</span>
+          </div>
+          <p class="text-xl font-bold text-red-600">₱15,000 <span class="text-xs font-normal">(owed)</span></p>
+          <p class="text-xs text-gray-400 mt-1">8 entries</p>
+        </div>
+        <!-- Cash -->
+        <div class="bg-white rounded-lg shadow-sm p-4 border-2 border-gray-300">
+          <div class="flex items-center justify-between mb-2">
+            <p class="font-medium text-sm text-gray-800">Cash</p>
+            <span class="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">Debit</span>
+          </div>
+          <p class="text-xl font-bold text-gray-800">₱3,200</p>
+          <p class="text-xs text-gray-400 mt-1">22 entries</p>
+        </div>
+        <!-- Lent to Mark -->
+        <div class="bg-white rounded-lg shadow-sm p-4 border-2 border-dotted border-gray-400">
+          <div class="flex items-center justify-between mb-2">
+            <p class="font-medium text-sm text-gray-800">Lent to Mark</p>
+            <span class="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">Lent</span>
+          </div>
+          <p class="text-xl font-bold text-gray-800">₱3,000</p>
+          <p class="text-xs text-gray-400 mt-1">2 entries</p>
+        </div>
+        <!-- Stock Investment -->
+        <div class="bg-white rounded-lg shadow-sm p-4 border-4 border-gray-500">
+          <div class="flex items-center justify-between mb-2">
+            <p class="font-medium text-sm text-gray-800">Stock Investment</p>
+            <span class="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">Invest</span>
+          </div>
+          <p class="text-xl font-bold text-gray-800">₱10,000</p>
+          <p class="text-xs text-gray-400 mt-1">3 entries</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Row 4: Recent Entries -->
+    <section aria-label="Recent Entries">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-sm font-semibold text-gray-700">Recent Entries</h2>
+        <a href="02-entries.html" class="text-xs text-gray-500 hover:text-gray-700">View all →</a>
+      </div>
+      <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+        <table class="w-full text-sm" role="table">
+          <thead class="bg-gray-50 text-gray-500 uppercase text-xs" role="rowgroup">
+            <tr>
+              <th class="px-4 py-3 text-left font-medium" scope="col">Date</th>
+              <th class="px-4 py-3 text-left font-medium" scope="col">Type</th>
+              <th class="px-4 py-3 text-left font-medium" scope="col">Category</th>
+              <th class="px-4 py-3 text-right font-medium" scope="col">Amount</th>
+              <th class="px-4 py-3 text-left font-medium" scope="col">Account</th>
+              <th class="px-4 py-3 text-center font-medium" scope="col">Actions</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100" role="rowgroup">
+            <tr>
+              <td class="px-4 py-3 text-gray-600">Jul 10, 2026</td>
+              <td class="px-4 py-3"><span class="text-gray-600">↓ Income</span></td>
+              <td class="px-4 py-3 text-gray-700">Salary</td>
+              <td class="px-4 py-3 text-right font-medium text-gray-800">₱40,000</td>
+              <td class="px-4 py-3 text-gray-600">BPI Savings</td>
+              <td class="px-4 py-3 text-center"><button class="text-gray-400 hover:text-gray-700 mr-2" aria-label="Edit entry">✎</button><button class="text-gray-400 hover:text-gray-700" aria-label="Delete entry">🗑</button></td>
+            </tr>
+            <tr>
+              <td class="px-4 py-3 text-gray-600">Jul 9, 2026</td>
+              <td class="px-4 py-3"><span class="text-gray-600">↑ Expense</span></td>
+              <td class="px-4 py-3 text-gray-700">Food & Dining</td>
+              <td class="px-4 py-3 text-right font-medium text-gray-800">₱850</td>
+              <td class="px-4 py-3 text-gray-600">Cash</td>
+              <td class="px-4 py-3 text-center"><button class="text-gray-400 hover:text-gray-700 mr-2" aria-label="Edit entry">✎</button><button class="text-gray-400 hover:text-gray-700" aria-label="Delete entry">🗑</button></td>
+            </tr>
+            <tr>
+              <td class="px-4 py-3 text-gray-600">Jul 8, 2026</td>
+              <td class="px-4 py-3"><span class="text-gray-600">↑ Expense</span></td>
+              <td class="px-4 py-3 text-gray-700">Transportation</td>
+              <td class="px-4 py-3 text-right font-medium text-gray-800">₱320</td>
+              <td class="px-4 py-3 text-gray-600">BDO Credit Card</td>
+              <td class="px-4 py-3 text-center"><button class="text-gray-400 hover:text-gray-700 mr-2" aria-label="Edit entry">✎</button><button class="text-gray-400 hover:text-gray-700" aria-label="Delete entry">🗑</button></td>
+            </tr>
+            <tr>
+              <td class="px-4 py-3 text-gray-600">Jul 7, 2026</td>
+              <td class="px-4 py-3"><span class="text-gray-600">↑ Expense</span></td>
+              <td class="px-4 py-3 text-gray-700">Housing & Utilities</td>
+              <td class="px-4 py-3 text-right font-medium text-gray-800">₱5,200</td>
+              <td class="px-4 py-3 text-gray-600">BPI Savings</td>
+              <td class="px-4 py-3 text-center"><button class="text-gray-400 hover:text-gray-700 mr-2" aria-label="Edit entry">✎</button><button class="text-gray-400 hover:text-gray-700" aria-label="Delete entry">🗑</button></td>
+            </tr>
+            <tr>
+              <td class="px-4 py-3 text-gray-600">Jul 6, 2026</td>
+              <td class="px-4 py-3"><span class="text-gray-600">↓ Income</span></td>
+              <td class="px-4 py-3 text-gray-700">Freelance</td>
+              <td class="px-4 py-3 text-right font-medium text-gray-800">₱3,500</td>
+              <td class="px-4 py-3 text-gray-600">BPI Savings</td>
+              <td class="px-4 py-3 text-center"><button class="text-gray-400 hover:text-gray-700 mr-2" aria-label="Edit entry">✎</button><button class="text-gray-400 hover:text-gray-700" aria-label="Delete entry">🗑</button></td>
+            </tr>
+            <tr>
+              <td class="px-4 py-3 text-gray-600">Jul 5, 2026</td>
+              <td class="px-4 py-3"><span class="text-gray-600">↑ Expense</span></td>
+              <td class="px-4 py-3 text-gray-700">Shopping</td>
+              <td class="px-4 py-3 text-right font-medium text-gray-800">₱1,800</td>
+              <td class="px-4 py-3 text-gray-600">BDO Credit Card</td>
+              <td class="px-4 py-3 text-center"><button class="text-gray-400 hover:text-gray-700 mr-2" aria-label="Edit entry">✎</button><button class="text-gray-400 hover:text-gray-700" aria-label="Delete entry">🗑</button></td>
+            </tr>
+            <tr>
+              <td class="px-4 py-3 text-gray-600">Jul 4, 2026</td>
+              <td class="px-4 py-3"><span class="text-gray-600">↑ Expense</span></td>
+              <td class="px-4 py-3 text-gray-700">Entertainment</td>
+              <td class="px-4 py-3 text-right font-medium text-gray-800">₱650</td>
+              <td class="px-4 py-3 text-gray-600">Cash</td>
+              <td class="px-4 py-3 text-center"><button class="text-gray-400 hover:text-gray-700 mr-2" aria-label="Edit entry">✎</button><button class="text-gray-400 hover:text-gray-700" aria-label="Delete entry">🗑</button></td>
+            </tr>
+            <tr>
+              <td class="px-4 py-3 text-gray-600">Jul 3, 2026</td>
+              <td class="px-4 py-3"><span class="text-gray-600">↑ Expense</span></td>
+              <td class="px-4 py-3 text-gray-700">Subscriptions</td>
+              <td class="px-4 py-3 text-right font-medium text-gray-800">₱999</td>
+              <td class="px-4 py-3 text-gray-600">BDO Credit Card</td>
+              <td class="px-4 py-3 text-center"><button class="text-gray-400 hover:text-gray-700 mr-2" aria-label="Edit entry">✎</button><button class="text-gray-400 hover:text-gray-700" aria-label="Delete entry">🗑</button></td>
+            </tr>
+            <tr>
+              <td class="px-4 py-3 text-gray-600">Jul 2, 2026</td>
+              <td class="px-4 py-3"><span class="text-gray-600">↑ Expense</span></td>
+              <td class="px-4 py-3 text-gray-700">Health</td>
+              <td class="px-4 py-3 text-right font-medium text-gray-800">₱900</td>
+              <td class="px-4 py-3 text-gray-600">Cash</td>
+              <td class="px-4 py-3 text-center"><button class="text-gray-400 hover:text-gray-700 mr-2" aria-label="Edit entry">✎</button><button class="text-gray-400 hover:text-gray-700" aria-label="Delete entry">🗑</button></td>
+            </tr>
+            <tr>
+              <td class="px-4 py-3 text-gray-600">Jul 1, 2026</td>
+              <td class="px-4 py-3"><span class="text-gray-600">↑ Expense</span></td>
+              <td class="px-4 py-3 text-gray-700">Other</td>
+              <td class="px-4 py-3 text-right font-medium text-gray-800">₱600</td>
+              <td class="px-4 py-3 text-gray-600">BPI Savings</td>
+              <td class="px-4 py-3 text-center"><button class="text-gray-400 hover:text-gray-700 mr-2" aria-label="Edit entry">✎</button><button class="text-gray-400 hover:text-gray-700" aria-label="Delete entry">🗑</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- State Notes -->
+    <section class="border-t border-gray-200 pt-4 space-y-2" aria-label="State specifications">
+      <div class="bg-gray-50 rounded-md p-3 text-xs text-gray-500">
+        <p class="font-medium text-gray-600 mb-1">Empty State:</p>
+        <p>When no entries exist: KPI cards show ₱0, charts show "No data to display", recent entries shows "No entries yet. Add your first expense to get started."</p>
+      </div>
+      <div class="bg-gray-50 rounded-md p-3 text-xs text-gray-500">
+        <p class="font-medium text-gray-600 mb-1">Loading State:</p>
+        <p>Skeleton gray-200 blocks pulse for 2s max.</p>
+      </div>
+      <div class="bg-gray-50 rounded-md p-3 text-xs text-gray-500">
+        <p class="font-medium text-gray-600 mb-1">Error State:</p>
+        <p class="text-red-600">Failed to load dashboard data. Please check your connection.</p>
+      </div>
+    </section>
+  </div>
+</main>
+
+</body>
+</html>

@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Household Tracker — Categories</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>body { font-family: system-ui, sans-serif; }</style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+<!-- Sidebar -->
+<aside class="fixed left-0 top-0 h-screen w-64 bg-gray-900 text-gray-300 flex flex-col" aria-label="Main navigation">
+  <div class="px-6 py-5 text-lg font-semibold text-white border-b border-gray-700">Household Tracker</div>
+  <nav class="flex-1 py-4" role="navigation">
+    <a href="01-dashboard.html" class="flex items-center gap-3 px-6 py-3 hover:bg-gray-800">📊 Dashboard</a>
+    <a href="02-entries.html" class="flex items-center gap-3 px-6 py-3 hover:bg-gray-800">📋 Entries</a>
+    <a href="04-accounts.html" class="flex items-center gap-3 px-6 py-3 hover:bg-gray-800">🏦 Accounts</a>
+    <a href="07-categories.html" class="flex items-center gap-3 px-6 py-3 bg-gray-200 text-gray-900 font-medium" aria-current="page">🏷️ Categories</a>
+    <a href="#" class="flex items-center gap-3 px-6 py-3 hover:bg-gray-800">📤 Export</a>
+  </nav>
+  <div class="px-6 py-4 text-xs text-gray-500 border-t border-gray-700">v1.0 · Wireframe</div>
+</aside>
+
+<!-- Main content -->
+<main class="ml-64 min-h-screen">
+  <!-- Header -->
+  <header class="bg-white shadow-sm px-8 py-4 flex items-center justify-between" role="banner">
+    <h1 class="text-xl font-semibold text-gray-800">Categories</h1>
+    <button class="bg-gray-800 text-white text-sm px-4 py-1.5 rounded-md hover:bg-gray-900" role="button" id="btn-add-cat">+ Add Category</button>
+  </header>
+
+  <div class="p-8 space-y-6">
+    <!-- Two-column layout -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <!-- Expense Categories -->
+      <section class="bg-white rounded-lg shadow-sm border border-gray-200" aria-label="Expense categories">
+        <div class="px-6 py-4 border-b border-gray-100">
+          <h2 class="text-sm font-semibold text-gray-700">Expense Categories</h2>
+        </div>
+        <div class="divide-y divide-gray-100" role="list">
+          <div class="px-6 py-3 flex items-center justify-between hover:bg-gray-50" role="listitem">
+            <div class="flex items-center gap-3">
+              <span class="w-3 h-3 rounded-sm bg-gray-700"></span>
+              <span class="text-sm text-gray-700 font-medium">Food & Dining</span>
+              <span class="text-xs text-gray-400">23 entries</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <button class="text-gray-400 hover:text-gray-700 text-sm" aria-label="Edit Food & Dining category">✎</button>
+              <button class="text-gray-400 hover:text-gray-700 text-sm" aria-label="Delete Food & Dining category">🗑</button>
+            </div>
+          </div>
+          <div class="px-6 py-3 flex items-center justify-between hover:bg-gray-50" role="listitem">
+            <div class="flex items-center gap-3">
+              <span class="w-3 h-3 rounded-sm bg-gray-600"></span>
+              <span class="text-sm text-gray-700 font-medium">Transportation</span>
+              <span class="text-xs text-gray-400">12 entries</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <button class="text-gray-400 hover:text-gray-700 text-sm" aria-label="Edit Transportation category">✎</button>
+              <button class="text-gray-400 hover:text-gray-700 text-sm" aria-label="Delete Transportation category">🗑</button>
+            </div>
+          </div>
+          <div class="px-6 py-3 flex items-center justify-between hover:bg-gray-50" role="listitem">
+            <div class="flex items-center gap-3">
+              <span class="w-3 h-3 rounded-sm bg-gray-500"></span>
+              <span class="text-sm text-gray-700 font-medium">Housing & Utilities</span>
+              <span class="text-xs text-gray-400">8 entries</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <button class="text-gray-400 hover:text-gray-700 text-sm" aria-label="Edit Housing & Utilities category">✎</button>
+              <button class="text-gray-400 hover:text-gray-700 text-sm" aria-label="Delete Housing & Utilities category">🗑</button>
+            </div>
+          </div>
+          <div class="px-6 py-3 flex items-center justify-between hover:bg-gray-50" role="listitem">
+            <div class="flex items-center gap-3">
+              <span class="w-3 h-3 rounded-sm bg-gray-400"></span>
+              <span class="text-sm text-gray-700 font-medium">Shopping</span>
+              <span class="text-xs text-gray-400">15 entries</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <button class="text-gray-400 hover:text-gray-700 text-sm" aria-label="Edit Shopping category">✎</button>
+              <button class="text-gray-400 hover:text-gray-700 text-sm" aria-label="Delete Shopping category">🗑</button>
+            </div>
+          </div>
+          <div class="px-6 py-3 flex items-center justify-between hover:bg-gray-50" role="listitem">
+            <div class="flex items-center gap-3">
+              <span class="w-3 h-3 rounded-sm bg-gray-300"></span>
+              <span class="text-sm text-gray-700 font-medium">Entertainment</span>
+              <span class="text-xs text-gray-400">7 entries</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <button class="text-gray-400 hover:text-gray-700 text-sm" aria-label="Edit Entertainment category">✎</button>
+              <button class="text-gray-400 hover:text-gray-700 text-sm" aria-label="Delete Entertainment category">🗑</button>
+            </div>
+          </div>
+          <div class="px-6 py-3 flex items-center justify-between hover:bg-gray-50" role="listitem">
+            <div class="flex items-center gap-3">
+              <span class="w-3 h-3 rounded-sm bg-gray-200"></span>
+              <span class="text-sm text-gray-700 font-medium">Health</span>
+              <span class="text-xs text-gray-400">3 entries</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <button class="text-gray-400 hover:text-gray-700 text-sm" aria-label="Edit Health category">✎</button>
+              <button class="text-gray-400 hover:text-gray-700 text-sm" aria-label="Delete Health category">🗑</button>
+            </div>
+          </div>
+          <div class="px-6 py-3 flex items-center justify-between hover:bg-gray-50" role="listitem">
+            <div class="flex items-center gap-3">
+              <span class="w-3 h-3 rounded-sm bg-gray-100 border border-gray-300"></span>
+              <span class="text-sm text-gray-700 font-medium">Education</span>
+              <span class="text-xs text-gray-400">2 entries</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <button class="text-gray-400 hover:text-gray-700 text-sm" aria-label="Edit Education category">✎</button>
+              <button class="text-gray-400 hover:text-gray-700 text-sm" aria-label="Delete Education category">🗑</button>
+            </div>
+          </div>
+          <div class="px-6 py-3 flex items-center justify-between hover:bg-gray-50" role="listitem">
+            <div class="flex items-center gap-3">
+              <span class="w-3 h-3 rounded-sm bg-gray-200"></span>
+              <span class="text-sm text-gray-700 font-medium">Subscriptions</span>
+              <span class="text-xs text-gray-400">4 entries</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <button class="text-gray-400 hover:text-gray-700 text-sm" aria-label="Edit Subscriptions category">✎</button>
+              <button class="text-gray-400 hover:text-gray-700 text-sm" aria-label="Delete Subscriptions category">🗑</button>
+            </div>
+          </div>
+          <div class="px-6 py-3 flex items-center justify-between hover:bg-gray-50" role="listitem">
+            <div class="flex items-center gap-3">
+              <span class="w-3 h-3 rounded-sm bg-gray-100 border border-gray-300"></span>
+              <span class="text-sm text-gray-700 font-medium">Insurance</span>
+              <span class="text-xs text-gray-400">1 entry</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <button class="text-gray-400 hover:text-gray-700 text-sm" aria-label="Edit Insurance category">✎</button>
+              <button class="text-gray-400 hover:text-gray-700 text-sm" aria-label="Delete Insurance category">🗑</button>
+            </div>
+          </div>
+          <div class="px-6 py-3 flex items-center justify-between hover:bg-gray-50" role="listitem">
+            <div class="flex items-center gap-3">
+              <span class="w-3 h-3 rounded-sm bg-white border border-gray-300"></span>
+              <span class="text-sm text-gray-700 font-medium">Other</span>
+              <span class="text-xs text-gray-400">5 entries</span>
+              <span class="text-xs text-gray-400 italic ml-1">— cannot be deleted</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <button class="text-gray-400 hover:text-gray-700 text-sm" aria-label="Edit Other category">✎</button>
+              <button class="text-gray-300 cursor-not-allowed text-sm" aria-label="Delete Other category (disabled)" disabled>🗑</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Income Categories -->
+      <section class="bg-white rounded-lg shadow-sm border border-gray-200" aria-label="Income categories">
+        <div class="px-6 py-4 border-b border-gray-100">
+          <h2 class="text-sm font-semibold text-gray-700">Income Categories</h2>
+        </div>
+        <div class="divide-y divide-gray-100" role="list">
+          <div class="px-6 py-3 flex items-center justify-between hover:bg-gray-50" role="listitem">
+            <div class="flex items-center gap-3">
+              <span class="w-3 h-3 rounded-sm bg-gray-700"></span>
+              <span class="text-sm text-gray-700 font-medium">Salary</span>
+              <span class="text-xs text-gray-400">2 entries</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <button class="text-gray-400 hover:text-gray-700 text-sm" aria-label="Edit Salary category">✎</button>
+              <button class="text-gray-400 hover:text-gray-700 text-sm" aria-label="Delete Salary category">🗑</button>
+            </div>
+          </div>
+          <div class="px-6 py-3 flex items-center justify-between hover:bg-gray-50" role="listitem">
+            <div class="flex items-center gap-3">
+              <span class="w-3 h-3 rounded-sm bg-gray-500"></span>
+              <span class="text-sm text-gray-700 font-medium">Freelance</span>
+              <span class="text-xs text-gray-400">3 entries</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <button class="text-gray-400 hover:text-gray-700 text-sm" aria-label="Edit Freelance category">✎</button>
+              <button class="text-gray-400 hover:text-gray-700 text-sm" aria-label="Delete Freelance category">🗑</button>
+            </div>
+          </div>
+          <div class="px-6 py-3 flex items-center justify-between hover:bg-gray-50" role="listitem">
+            <div class="flex items-center gap-3">
+              <span class="w-3 h-3 rounded-sm bg-gray-400"></span>
+              <span class="text-sm text-gray-700 font-medium">Gift</span>
+              <span class="text-xs text-gray-400">1 entry</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <button class="text-gray-400 hover:text-gray-700 text-sm" aria-label="Edit Gift category">✎</button>
+              <button class="text-gray-400 hover:text-gray-700 text-sm" aria-label="Delete Gift category">🗑</button>
+            </div>
+          </div>
+          <div class="px-6 py-3 flex items-center justify-between hover:bg-gray-50" role="listitem">
+            <div class="flex items-center gap-3">
+              <span class="w-3 h-3 rounded-sm bg-gray-300"></span>
+              <span class="text-sm text-gray-700 font-medium">Investment</span>
+              <span class="text-xs text-gray-400">2 entries</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <button class="text-gray-400 hover:text-gray-700 text-sm" aria-label="Edit Investment category">✎</button>
+              <button class="text-gray-400 hover:text-gray-700 text-sm" aria-label="Delete Investment category">🗑</button>
+            </div>
+          </div>
+          <div class="px-6 py-3 flex items-center justify-between hover:bg-gray-50" role="listitem">
+            <div class="flex items-center gap-3">
+              <span class="w-3 h-3 rounded-sm bg-gray-200"></span>
+              <span class="text-sm text-gray-700 font-medium">Refund</span>
+              <span class="text-xs text-gray-400">1 entry</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <button class="text-gray-400 hover:text-gray-700 text-sm" aria-label="Edit Refund category">✎</button>
+              <button class="text-gray-400 hover:text-gray-700 text-sm" aria-label="Delete Refund category">🗑</button>
+            </div>
+          </div>
+          <div class="px-6 py-3 flex items-center justify-between hover:bg-gray-50" role="listitem">
+            <div class="flex items-center gap-3">
+              <span class="w-3 h-3 rounded-sm bg-gray-100 border border-gray-300"></span>
+              <span class="text-sm text-gray-700 font-medium">Other Income</span>
+              <span class="text-xs text-gray-400">0 entries</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <button class="text-gray-400 hover:text-gray-700 text-sm" aria-label="Edit Other Income category">✎</button>
+              <button class="text-gray-400 hover:text-gray-700 text-sm" aria-label="Delete Other Income category">🗑</button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- Add Category Form (inline modal) -->
+    <section class="hidden bg-white rounded-lg shadow-sm border border-gray-200 p-6" aria-label="Add category form" id="add-cat-form">
+      <h3 class="text-sm font-semibold text-gray-700 mb-4">Add New Category</h3>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+        <div>
+          <label for="cat-name" class="block text-sm font-medium text-gray-700 mb-1.5">Category Name <span class="text-red-600">*</span></label>
+          <input type="text" id="cat-name" placeholder="e.g., Pet Expenses" class="w-full px-4 py-2.5 border border-gray-300 rounded-md text-sm" aria-label="Category name" aria-required="true">
+        </div>
+        <div>
+          <label for="cat-type" class="block text-sm font-medium text-gray-700 mb-1.5">Type <span class="text-red-600">*</span></label>
+          <select id="cat-type" class="w-full px-4 py-2.5 border border-gray-300 rounded-md text-sm bg-white" aria-label="Category type" aria-required="true">
+            <option value="">Select type...</option>
+            <option>Expense</option>
+            <option>Income</option>
+          </select>
+        </div>
+        <div>
+          <label for="cat-icon" class="block text-sm font-medium text-gray-700 mb-1.5">Color / Icon <span class="text-gray-400 font-normal">(P2)</span></label>
+          <div class="relative">
+            <select id="cat-icon" class="w-full px-4 py-2.5 border border-gray-300 rounded-md text-sm bg-gray-100 text-gray-400 cursor-not-allowed" aria-label="Color and icon picker (coming soon)" disabled>
+              <option>Coming in future update</option>
+            </select>
+            <span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">🔒</span>
+          </div>
+        </div>
+      </div>
+      <div class="flex items-center justify-end gap-3 mt-4 pt-4 border-t border-gray-100">
+        <button class="px-4 py-2 text-sm bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 border border-gray-300" id="btn-cancel-cat">Cancel</button>
+        <button class="px-4 py-2 text-sm bg-gray-800 text-white rounded-md hover:bg-gray-900">Save Category</button>
+      </div>
+    </section>
+
+    <!-- Delete Category Resolution (shown inline for documentation) -->
+    <section class="bg-gray-50 rounded-lg border-2 border-dashed border-gray-300 p-6" aria-label="Delete category resolution example">
+      <p class="text-xs font-medium text-gray-500 uppercase mb-3">Delete Category Resolution ↓</p>
+      <div class="bg-white rounded-lg border border-gray-200 p-5">
+        <div class="flex items-start gap-3 mb-4">
+          <svg class="w-5 h-5 text-gray-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+          <div>
+            <p class="text-sm font-medium text-gray-800">Delete 'Food & Dining'?</p>
+            <p class="text-xs text-gray-500 mt-1">This category has 23 entries. "Other" is always available and cannot be deleted.</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-4">
+          <label for="reassign-cat" class="text-sm text-gray-600">Reassign 23 entries to:</label>
+          <select id="reassign-cat" class="px-3 py-2 border border-gray-300 rounded-md text-sm bg-white" aria-label="Reassign entries to category">
+            <option>Transportation</option>
+            <option>Housing & Utilities</option>
+            <option>Shopping</option>
+            <option>Entertainment</option>
+            <option>Health</option>
+            <option>Education</option>
+            <option>Subscriptions</option>
+            <option>Insurance</option>
+            <option>Other</option>
+          </select>
+        </div>
+        <div class="flex items-center justify-end gap-3 mt-4 pt-4 border-t border-gray-100">
+          <button class="px-4 py-2 text-sm bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 border border-gray-300">Cancel</button>
+          <button class="px-4 py-2 text-sm bg-red-600 text-white rounded-md hover:bg-red-700">Delete Category & Reassign</button>
+        </div>
+      </div>
+    </section>
+  </div>
+</main>
+
+<script>
+  const addBtn = document.getElementById('btn-add-cat');
+  const form = document.getElementById('add-cat-form');
+  const cancelBtn = document.getElementById('btn-cancel-cat');
+  addBtn.addEventListener('click', () => {
+    form.classList.toggle('hidden');
+    if (!form.classList.contains('hidden')) {
+      form.scrollIntoView({ behavior: 'smooth' });
+    }
+  });
+  cancelBtn.addEventListener('click', () => {
+    form.classList.add('hidden');
+  });
+</script>
+
+</body>
+</html>

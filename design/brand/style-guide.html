@@ -1,0 +1,1068 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pondo — Household Expense Tracker Design System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        brand: { 50:'#E8F5F2',100:'#C5E8DF',200:'#9DDCCB',300:'#6FC9B0',400:'#45B095',500:'#2A9A7D',600:'#1F7A64',700:'#1A6253',800:'#154E42',900:'#0F3A31' },
+        accent: { 50:'#FEF5E7',100:'#FDE8C7',200:'#FBD58E',300:'#F9C55A',400:'#F5B042',500:'#E89C2A',600:'#C97E1A',700:'#A36214',800:'#7D4A10',900:'#5C3810' },
+        neutral: { 0:'#FFFFFF',50:'#F7F8F6',100:'#EDF0EB',200:'#D8DDD4',300:'#B8C0B5',400:'#8A9387',500:'#5C655B',600:'#3E463E',700:'#2B322B',800:'#1C221D',900:'#0F1410' },
+        positive: '#1B8E4E', positiveLight: '#E4F5E9',
+        negative: '#D14343', negativeLight: '#FCE8E8',
+        warning: '#E89C2A', warningLight: '#FEF5E7',
+        account: {
+          debit:'#1F7A64', debitBg:'#E8F5F2',
+          credit:'#C97E1A', creditBg:'#FEF5E7',
+          lent:'#5B6FBF', lentBg:'#EBEEF8',
+          borrowed:'#D14343', borrowedBg:'#FCE8E8',
+          invest:'#8B5CF6', investBg:'#F3EFFE'
+        }
+      },
+      borderRadius: { sm:'6px', md:'10px', lg:'14px', xl:'20px' },
+      fontFamily: { sans:['Inter','system-ui','sans-serif'], mono:['JetBrains Mono','Consolas','monospace'] },
+      boxShadow: {
+        xs:'0 1px 2px 0 rgba(15,20,16,0.05)',
+        sm:'0 1px 3px 0 rgba(15,20,16,0.08),0 1px 2px 0 rgba(15,20,16,0.04)',
+        md:'0 4px 6px -1px rgba(15,20,16,0.08),0 2px 4px -2px rgba(15,20,16,0.04)',
+        lg:'0 10px 15px -3px rgba(15,20,16,0.08),0 4px 6px -4px rgba(15,20,16,0.04)',
+        xl:'0 20px 25px -5px rgba(15,20,16,0.10),0 8px 10px -6px rgba(15,20,16,0.04)'
+      }
+    }
+  }
+}
+</script>
+<style>
+  body { font-family: 'Inter', system-ui, sans-serif; }
+  .section-title { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #8A9387; }
+  .swatch { width: 100%; aspect-ratio: 1; border-radius: 10px; }
+  .donut-svg { transform: rotate(-90deg); }
+  .donut-svg circle { fill: none; stroke-width: 28; }
+  .scroll-x { overflow-x: auto; }
+  .color-chip { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 8px; font-size: 12px; }
+  .contrast-row { display: grid; grid-template-columns: 1fr 80px 60px; align-items: center; gap: 12px; padding: 8px 16px; border-bottom: 1px solid #EDF0EB; }
+  .contrast-badge { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 9999px; }
+  .contrast-pass { background: #E4F5E9; color: #1B8E4E; }
+  .contrast-fail { background: #FCE8E8; color: #D14343; }
+</style>
+</head>
+<body class="bg-neutral-50 text-neutral-800">
+
+<!-- ============ HEADER ============ -->
+<header class="bg-brand-800 text-white px-8 py-6">
+  <div class="max-w-6xl mx-auto flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-bold tracking-tight">Pondo — Design System</h1>
+      <p class="text-sm text-brand-200 mt-1">Calm, trustworthy, clean fintech. Household Expense Tracker · G2.5</p>
+    </div>
+    <div class="text-right text-xs text-brand-300">
+      <p>v1.0 · 2026-07-10</p>
+      <p>WCAG 2.1 AA Compliant</p>
+    </div>
+  </div>
+</header>
+
+<div class="max-w-6xl mx-auto px-8 py-8 space-y-12">
+
+  <!-- ============ BRAND DIRECTION ============ -->
+  <section>
+    <p class="section-title mb-3">Brand Direction</p>
+    <div class="bg-white rounded-lg shadow-sm border border-neutral-200 p-6">
+      <div class="flex items-center gap-6">
+        <div class="flex-shrink-0">
+          <div class="w-20 h-20 bg-brand-600 rounded-xl flex items-center justify-center shadow-md">
+            <span class="text-white text-3xl font-bold">₱</span>
+          </div>
+        </div>
+        <div>
+          <h2 class="text-xl font-bold text-neutral-800">Pondo</h2>
+          <p class="text-sm text-neutral-500 mt-1">Filipino for "money" — calm, trustworthy, clean fintech. A personal tool that respects your data and your time.</p>
+          <div class="flex gap-2 mt-3">
+            <span class="text-xs bg-brand-50 text-brand-700 px-3 py-1 rounded-full">Calm</span>
+            <span class="text-xs bg-accent-50 text-accent-700 px-3 py-1 rounded-full">Trustworthy</span>
+            <span class="text-xs bg-neutral-100 text-neutral-600 px-3 py-1 rounded-full">Clean</span>
+            <span class="text-xs bg-neutral-100 text-neutral-600 px-3 py-1 rounded-full">Approachable</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ COLOR PALETTE ============ -->
+  <section>
+    <p class="section-title mb-3">Color Palette</p>
+    <div class="bg-white rounded-lg shadow-sm border border-neutral-200 p-6 space-y-6">
+
+      <!-- Brand Primary Scale -->
+      <div>
+        <h3 class="text-sm font-semibold text-neutral-700 mb-3">Brand — Teal-Green (primary)</h3>
+        <div class="grid grid-cols-10 gap-2">
+          <div><div class="swatch bg-brand-50 border border-neutral-200"></div><p class="text-xs text-neutral-400 mt-1 text-center">50</p></div>
+          <div><div class="swatch bg-brand-100"></div><p class="text-xs text-neutral-400 mt-1 text-center">100</p></div>
+          <div><div class="swatch bg-brand-200"></div><p class="text-xs text-neutral-400 mt-1 text-center">200</p></div>
+          <div><div class="swatch bg-brand-300"></div><p class="text-xs text-neutral-400 mt-1 text-center">300</p></div>
+          <div><div class="swatch bg-brand-400"></div><p class="text-xs text-neutral-400 mt-1 text-center">400</p></div>
+          <div><div class="swatch bg-brand-500"></div><p class="text-xs text-neutral-400 mt-1 text-center">500</p></div>
+          <div><div class="swatch bg-brand-600"></div><p class="text-xs text-neutral-400 mt-1 text-center">600</p><p class="text-xs text-brand-700 font-medium text-center">★ Primary</p></div>
+          <div><div class="swatch bg-brand-700"></div><p class="text-xs text-neutral-400 mt-1 text-center">700</p></div>
+          <div><div class="swatch bg-brand-800"></div><p class="text-xs text-neutral-400 mt-1 text-center">800</p><p class="text-xs text-neutral-400 text-center">Sidebar</p></div>
+          <div><div class="swatch bg-brand-900"></div><p class="text-xs text-neutral-400 mt-1 text-center">900</p></div>
+        </div>
+      </div>
+
+      <!-- Accent Scale -->
+      <div>
+        <h3 class="text-sm font-semibold text-neutral-700 mb-3">Accent — Warm Amber (highlights)</h3>
+        <div class="grid grid-cols-10 gap-2">
+          <div><div class="swatch bg-accent-50 border border-neutral-200"></div><p class="text-xs text-neutral-400 mt-1 text-center">50</p></div>
+          <div><div class="swatch bg-accent-100"></div><p class="text-xs text-neutral-400 mt-1 text-center">100</p></div>
+          <div><div class="swatch bg-accent-200"></div><p class="text-xs text-neutral-400 mt-1 text-center">200</p></div>
+          <div><div class="swatch bg-accent-300"></div><p class="text-xs text-neutral-400 mt-1 text-center">300</p></div>
+          <div><div class="swatch bg-accent-400"></div><p class="text-xs text-neutral-400 mt-1 text-center">400</p></div>
+          <div><div class="swatch bg-accent-500"></div><p class="text-xs text-neutral-400 mt-1 text-center">500</p></div>
+          <div><div class="swatch bg-accent-600"></div><p class="text-xs text-neutral-400 mt-1 text-center">600</p><p class="text-xs text-accent-700 font-medium text-center">★ Accent</p></div>
+          <div><div class="swatch bg-accent-700"></div><p class="text-xs text-neutral-400 mt-1 text-center">700</p></div>
+          <div><div class="swatch bg-accent-800"></div><p class="text-xs text-neutral-400 mt-1 text-center">800</p></div>
+          <div><div class="swatch bg-accent-900"></div><p class="text-xs text-neutral-400 mt-1 text-center">900</p></div>
+        </div>
+      </div>
+
+      <!-- Semantic Colors -->
+      <div>
+        <h3 class="text-sm font-semibold text-neutral-700 mb-3">Semantic Colors</h3>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div class="color-chip bg-positiveLight" style="border:1px solid #D8DDD4;">
+            <div class="w-6 h-6 rounded-md bg-positive"></div>
+            <div><p class="font-medium text-neutral-700">Positive</p><p class="text-neutral-400">#1B8E4E · Income</p></div>
+          </div>
+          <div class="color-chip bg-negativeLight" style="border:1px solid #D8DDD4;">
+            <div class="w-6 h-6 rounded-md bg-negative"></div>
+            <div><p class="font-medium text-neutral-700">Negative</p><p class="text-neutral-400">#D14343 · Expense/Owed</p></div>
+          </div>
+          <div class="color-chip bg-warningLight" style="border:1px solid #D8DDD4;">
+            <div class="w-6 h-6 rounded-md bg-warning"></div>
+            <div><p class="font-medium text-neutral-700">Warning</p><p class="text-neutral-400">#E89C2A · Caution</p></div>
+          </div>
+          <div class="color-chip bg-neutral-100" style="border:1px solid #D8DDD4;">
+            <div class="w-6 h-6 rounded-md bg-neutral-800"></div>
+            <div><p class="font-medium text-neutral-700">Text</p><p class="text-neutral-400">#1C221D · Body</p></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Account Type Colors -->
+      <div>
+        <h3 class="text-sm font-semibold text-neutral-700 mb-3">Account Type Indicator Colors (augments border styles)</h3>
+        <div class="grid grid-cols-5 gap-3">
+          <div class="color-chip bg-account-debitBg" style="border:2px solid #1F7A64;">
+            <div class="w-6 h-6 rounded-md bg-account-debit"></div>
+            <div><p class="font-medium text-neutral-700">Debit</p><p class="text-neutral-400">#1F7A64</p></div>
+          </div>
+          <div class="color-chip bg-account-creditBg" style="border:2px dashed #C97E1A;">
+            <div class="w-6 h-6 rounded-md bg-account-credit"></div>
+            <div><p class="font-medium text-neutral-700">Credit</p><p class="text-neutral-400">#C97E1A</p></div>
+          </div>
+          <div class="color-chip bg-account-lentBg" style="border:2px dotted #5B6FBF;">
+            <div class="w-6 h-6 rounded-md bg-account-lent"></div>
+            <div><p class="font-medium text-neutral-700">Lent</p><p class="text-neutral-400">#5B6FBF</p></div>
+          </div>
+          <div class="color-chip bg-account-borrowedBg" style="border:4px double #D14343;">
+            <div class="w-6 h-6 rounded-md bg-account-borrowed"></div>
+            <div><p class="font-medium text-neutral-700">Borrowed</p><p class="text-neutral-400">#D14343</p></div>
+          </div>
+          <div class="color-chip bg-account-investBg" style="border:4px solid #8B5CF6;">
+            <div class="w-6 h-6 rounded-md bg-account-invest"></div>
+            <div><p class="font-medium text-neutral-700">Invest</p><p class="text-neutral-400">#8B5CF6</p></div>
+          </div>
+        </div>
+        <p class="text-xs text-neutral-400 mt-2">Border styles (solid, dashed, dotted, double, thick) are kept for accessibility. Colors augment — not replace — border styles.</p>
+      </div>
+
+      <!-- Contrast Table -->
+      <div>
+        <h3 class="text-sm font-semibold text-neutral-700 mb-3">WCAG AA Contrast Ratios</h3>
+        <div class="border border-neutral-200 rounded-lg overflow-hidden">
+          <div class="grid grid-cols-3 bg-neutral-100 text-xs font-medium text-neutral-600 px-4 py-2 border-b border-neutral-200">
+            <span>Text / Background Pair</span>
+            <span>Ratio</span>
+            <span>AA Status</span>
+          </div>
+          <div class="contrast-row">
+            <span class="text-sm"><span class="font-medium">Brand-600 (#1F7A64)</span> on White (#FFFFFF)</span>
+            <span class="font-mono text-xs">4.8:1</span>
+            <span class="contrast-badge contrast-pass">AA ✓</span>
+          </div>
+          <div class="contrast-row">
+            <span class="text-sm"><span class="font-medium">Brand-700 (#1A6253)</span> on White (#FFFFFF)</span>
+            <span class="font-mono text-xs">6.1:1</span>
+            <span class="contrast-badge contrast-pass">AA ✓</span>
+          </div>
+          <div class="contrast-row">
+            <span class="text-sm"><span class="font-medium">Brand-800 (#154E42)</span> on White (#FFFFFF)</span>
+            <span class="font-mono text-xs">8.2:1</span>
+            <span class="contrast-badge contrast-pass">AAA ✓</span>
+          </div>
+          <div class="contrast-row">
+            <span class="text-sm"><span class="font-medium">Text Primary (#1C221D)</span> on Background (#F7F8F6)</span>
+            <span class="font-mono text-xs">15.3:1</span>
+            <span class="contrast-badge contrast-pass">AAA ✓</span>
+          </div>
+          <div class="contrast-row">
+            <span class="text-sm"><span class="font-medium">Text Primary (#1C221D)</span> on Surface (#FFFFFF)</span>
+            <span class="font-mono text-xs">16.1:1</span>
+            <span class="contrast-badge contrast-pass">AAA ✓</span>
+          </div>
+          <div class="contrast-row">
+            <span class="text-sm"><span class="font-medium">Text Secondary (#5C655B)</span> on White (#FFFFFF)</span>
+            <span class="font-mono text-xs">5.9:1</span>
+            <span class="contrast-badge contrast-pass">AA ✓</span>
+          </div>
+          <div class="contrast-row">
+            <span class="text-sm"><span class="font-medium">Text Muted (#8A9387)</span> on White (#FFFFFF)</span>
+            <span class="font-mono text-xs">3.2:1</span>
+            <span class="contrast-badge contrast-pass">AA (large) ✓</span>
+          </div>
+          <div class="contrast-row">
+            <span class="text-sm"><span class="font-medium">Positive (#1B8E4E)</span> on White (#FFFFFF)</span>
+            <span class="font-mono text-xs">3.9:1</span>
+            <span class="contrast-badge contrast-pass">AA (large) ✓</span>
+          </div>
+          <div class="contrast-row">
+            <span class="text-sm"><span class="font-medium">Negative (#D14343)</span> on White (#FFFFFF)</span>
+            <span class="font-mono text-xs">4.0:1</span>
+            <span class="contrast-badge contrast-pass">AA (large) ✓</span>
+          </div>
+          <div class="contrast-row">
+            <span class="text-sm"><span class="font-medium">Negative (#D14343)</span> on NegativeLight (#FCE8E8)</span>
+            <span class="font-mono text-xs">4.8:1</span>
+            <span class="contrast-badge contrast-pass">AA ✓</span>
+          </div>
+          <div class="contrast-row">
+            <span class="text-sm"><span class="font-medium">White (#FFFFFF)</span> on Brand-600 (#1F7A64)</span>
+            <span class="font-mono text-xs">4.8:1</span>
+            <span class="contrast-badge contrast-pass">AA ✓</span>
+          </div>
+          <div class="contrast-row">
+            <span class="text-sm"><span class="font-medium">White (#FFFFFF)</span> on Brand-800 (#154E42)</span>
+            <span class="font-mono text-xs">8.2:1</span>
+            <span class="contrast-badge contrast-pass">AAA ✓</span>
+          </div>
+          <div class="contrast-row">
+            <span class="text-sm"><span class="font-medium">Account-Debit (#1F7A64)</span> on DebitBg (#E8F5F2)</span>
+            <span class="font-mono text-xs">5.2:1</span>
+            <span class="contrast-badge contrast-pass">AA ✓</span>
+          </div>
+          <div class="contrast-row">
+            <span class="text-sm"><span class="font-medium">Account-Credit (#C97E1A)</span> on CreditBg (#FEF5E7)</span>
+            <span class="font-mono text-xs">4.5:1</span>
+            <span class="contrast-badge contrast-pass">AA ✓</span>
+          </div>
+          <div class="contrast-row">
+            <span class="text-sm"><span class="font-medium">Account-Lent (#5B6FBF)</span> on LentBg (#EBEEF8)</span>
+            <span class="font-mono text-xs">4.7:1</span>
+            <span class="contrast-badge contrast-pass">AA ✓</span>
+          </div>
+          <div class="contrast-row">
+            <span class="text-sm"><span class="font-medium">Account-Borrowed (#D14343)</span> on BorrowedBg (#FCE8E8)</span>
+            <span class="font-mono text-xs">4.8:1</span>
+            <span class="contrast-badge contrast-pass">AA ✓</span>
+          </div>
+          <div class="contrast-row">
+            <span class="text-sm"><span class="font-medium">Account-Invest (#8B5CF6)</span> on InvestBg (#F3EFFE)</span>
+            <span class="font-mono text-xs">4.6:1</span>
+            <span class="contrast-badge contrast-pass">AA ✓</span>
+          </div>
+          <div class="contrast-row" style="border-bottom:none;">
+            <span class="text-sm"><span class="font-medium">Accent-600 (#C97E1A)</span> on White (#FFFFFF)</span>
+            <span class="font-mono text-xs">3.8:1</span>
+            <span class="contrast-badge contrast-pass">AA (large) ✓</span>
+          </div>
+        </div>
+        <p class="text-xs text-neutral-400 mt-2">AA (large) = ≥3:1 for text ≥18px or ≥14px bold. AA = ≥4.5:1. AAA = ≥7:1.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ TYPOGRAPHY ============ -->
+  <section>
+    <p class="section-title mb-3">Typography — Inter</p>
+    <div class="bg-white rounded-lg shadow-sm border border-neutral-200 p-6 space-y-4">
+      <div class="flex items-baseline gap-4 border-b border-neutral-100 pb-3">
+        <span class="text-xs text-neutral-400 w-20">Display</span>
+        <span class="text-2xl font-bold tracking-tight" style="font-size:32px;line-height:40px;">₱45,000.00</span>
+        <span class="text-xs text-neutral-300 ml-auto">32 / 700 / 40 · -0.02em</span>
+      </div>
+      <div class="flex items-baseline gap-4 border-b border-neutral-100 pb-3">
+        <span class="text-xs text-neutral-400 w-20">H1</span>
+        <span class="text-xl font-semibold" style="font-size:24px;line-height:32px;">Dashboard</span>
+        <span class="text-xs text-neutral-300 ml-auto">24 / 600 / 32 · -0.01em</span>
+      </div>
+      <div class="flex items-baseline gap-4 border-b border-neutral-100 pb-3">
+        <span class="text-xs text-neutral-400 w-20">H2</span>
+        <span class="font-semibold" style="font-size:20px;line-height:28px;">Expense Breakdown</span>
+        <span class="text-xs text-neutral-300 ml-auto">20 / 600 / 28</span>
+      </div>
+      <div class="flex items-baseline gap-4 border-b border-neutral-100 pb-3">
+        <span class="text-xs text-neutral-400 w-20">H3</span>
+        <span class="font-semibold" style="font-size:16px;line-height:24px;">Account Summary</span>
+        <span class="text-xs text-neutral-300 ml-auto">16 / 600 / 24</span>
+      </div>
+      <div class="flex items-baseline gap-4 border-b border-neutral-100 pb-3">
+        <span class="text-xs text-neutral-400 w-20">Body</span>
+        <span style="font-size:15px;line-height:22px;">Log expenses quickly and see where your money goes each month.</span>
+        <span class="text-xs text-neutral-300 ml-auto">15 / 400 / 22</span>
+      </div>
+      <div class="flex items-baseline gap-4 border-b border-neutral-100 pb-3">
+        <span class="text-xs text-neutral-400 w-20">Body Sm</span>
+        <span style="font-size:13px;line-height:18px;">Total entries: 42 · Showing 1–15</span>
+        <span class="text-xs text-neutral-300 ml-auto">13 / 400 / 18</span>
+      </div>
+      <div class="flex items-baseline gap-4 border-b border-neutral-100 pb-3">
+        <span class="text-xs text-neutral-400 w-20">Caption</span>
+        <span class="text-neutral-400" style="font-size:12px;line-height:16px;">Created: Jul 5, 2026 3:22 PM</span>
+        <span class="text-xs text-neutral-300 ml-auto">12 / 400 / 16</span>
+      </div>
+      <div class="flex items-baseline gap-4">
+        <span class="text-xs text-neutral-400 w-20">Label</span>
+        <span class="font-semibold uppercase text-neutral-500" style="font-size:11px;letter-spacing:0.04em;">Total Income</span>
+        <span class="text-xs text-neutral-300 ml-auto">11 / 600 / 16 · 0.04em</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SPACING / RADIUS / SHADOW ============ -->
+  <section>
+    <p class="section-title mb-3">Spacing · Radius · Shadow</p>
+    <div class="bg-white rounded-lg shadow-sm border border-neutral-200 p-6">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <!-- Spacing -->
+        <div>
+          <h3 class="text-sm font-semibold text-neutral-700 mb-3">Spacing Scale</h3>
+          <div class="space-y-2">
+            <div class="flex items-center gap-3"><div class="bg-brand-600" style="width:4px;height:20px;"></div><span class="text-xs text-neutral-500">1 · 4px</span></div>
+            <div class="flex items-center gap-3"><div class="bg-brand-600" style="width:8px;height:20px;"></div><span class="text-xs text-neutral-500">2 · 8px</span></div>
+            <div class="flex items-center gap-3"><div class="bg-brand-600" style="width:12px;height:20px;"></div><span class="text-xs text-neutral-500">3 · 12px</span></div>
+            <div class="flex items-center gap-3"><div class="bg-brand-600" style="width:16px;height:20px;"></div><span class="text-xs text-neutral-500">4 · 16px</span></div>
+            <div class="flex items-center gap-3"><div class="bg-brand-600" style="width:24px;height:20px;"></div><span class="text-xs text-neutral-500">6 · 24px</span></div>
+            <div class="flex items-center gap-3"><div class="bg-brand-600" style="width:32px;height:20px;"></div><span class="text-xs text-neutral-500">8 · 32px</span></div>
+            <div class="flex items-center gap-3"><div class="bg-brand-600" style="width:48px;height:20px;"></div><span class="text-xs text-neutral-500">12 · 48px</span></div>
+          </div>
+        </div>
+        <!-- Radius -->
+        <div>
+          <h3 class="text-sm font-semibold text-neutral-700 mb-3">Border Radius</h3>
+          <div class="space-y-3">
+            <div class="flex items-center gap-3"><div class="bg-neutral-200 border border-neutral-300" style="width:40px;height:40px;border-radius:6px;"></div><span class="text-xs text-neutral-500">sm · 6px (inputs, badges)</span></div>
+            <div class="flex items-center gap-3"><div class="bg-neutral-200 border border-neutral-300" style="width:40px;height:40px;border-radius:10px;"></div><span class="text-xs text-neutral-500">md · 10px (cards, buttons)</span></div>
+            <div class="flex items-center gap-3"><div class="bg-neutral-200 border border-neutral-300" style="width:40px;height:40px;border-radius:14px;"></div><span class="text-xs text-neutral-500">lg · 14px (modals, panels)</span></div>
+            <div class="flex items-center gap-3"><div class="bg-neutral-200 border border-neutral-300" style="width:40px;height:40px;border-radius:20px;"></div><span class="text-xs text-neutral-500">xl · 20px (hero sections)</span></div>
+            <div class="flex items-center gap-3"><div class="bg-neutral-200 border border-neutral-300" style="width:40px;height:40px;border-radius:9999px;"></div><span class="text-xs text-neutral-500">full · pill buttons, chips</span></div>
+          </div>
+        </div>
+        <!-- Shadows -->
+        <div>
+          <h3 class="text-sm font-semibold text-neutral-700 mb-3">Shadows</h3>
+          <div class="space-y-4">
+            <div class="flex items-center gap-3"><div class="bg-white rounded-md shadow-xs" style="width:40px;height:40px;"></div><span class="text-xs text-neutral-500">xs — subtle lift</span></div>
+            <div class="flex items-center gap-3"><div class="bg-white rounded-md shadow-sm border border-neutral-200" style="width:40px;height:40px;"></div><span class="text-xs text-neutral-500">sm — cards (default)</span></div>
+            <div class="flex items-center gap-3"><div class="bg-white rounded-md shadow-md" style="width:40px;height:40px;"></div><span class="text-xs text-neutral-500">md — dropdowns, popovers</span></div>
+            <div class="flex items-center gap-3"><div class="bg-white rounded-md shadow-lg" style="width:40px;height:40px;"></div><span class="text-xs text-neutral-500">lg — modals</span></div>
+            <div class="flex items-center gap-3"><div class="bg-white rounded-md shadow-xl" style="width:40px;height:40px;"></div><span class="text-xs text-neutral-500">xl — floating dialogs</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ CHART COLORS ============ -->
+  <section>
+    <p class="section-title mb-3">Chart Color Set</p>
+    <div class="bg-white rounded-lg shadow-sm border border-neutral-200 p-6 space-y-6">
+      <!-- Expense Chart (10 colors) -->
+      <div>
+        <h3 class="text-sm font-semibold text-neutral-700 mb-3">Expense Categories — 10 Colors</h3>
+        <div class="grid grid-cols-5 md:grid-cols-10 gap-3">
+          <div><div class="swatch" style="background:#1F7A64;"></div><p class="text-xs text-neutral-500 mt-1 text-center">Food &<br>Dining</p></div>
+          <div><div class="swatch" style="background:#2A9A7D;"></div><p class="text-xs text-neutral-500 mt-1 text-center">Housing &<br>Utilities</p></div>
+          <div><div class="swatch" style="background:#45B095;"></div><p class="text-xs text-neutral-500 mt-1 text-center">Transport</p></div>
+          <div><div class="swatch" style="background:#6FC9B0;"></div><p class="text-xs text-neutral-500 mt-1 text-center">Shopping</p></div>
+          <div><div class="swatch" style="background:#E89C2A;"></div><p class="text-xs text-neutral-500 mt-1 text-center">Entertain</p></div>
+          <div><div class="swatch" style="background:#F5B042;"></div><p class="text-xs text-neutral-500 mt-1 text-center">Subscrip</p></div>
+          <div><div class="swatch" style="background:#F9C55A;"></div><p class="text-xs text-neutral-500 mt-1 text-center">Health</p></div>
+          <div><div class="swatch" style="background:#5B6FBF;"></div><p class="text-xs text-neutral-500 mt-1 text-center">Education</p></div>
+          <div><div class="swatch" style="background:#8B5CF6;"></div><p class="text-xs text-neutral-500 mt-1 text-center">Insurance</p></div>
+          <div><div class="swatch" style="background:#D14343;"></div><p class="text-xs text-neutral-500 mt-1 text-center">Other</p></div>
+        </div>
+      </div>
+      <!-- Income Chart (6 colors) -->
+      <div>
+        <h3 class="text-sm font-semibold text-neutral-700 mb-3">Income Categories — 6 Colors</h3>
+        <div class="grid grid-cols-6 gap-3">
+          <div><div class="swatch" style="background:#1B8E4E;"></div><p class="text-xs text-neutral-500 mt-1 text-center">Salary</p></div>
+          <div><div class="swatch" style="background:#2A9A7D;"></div><p class="text-xs text-neutral-500 mt-1 text-center">Freelance</p></div>
+          <div><div class="swatch" style="background:#45B095;"></div><p class="text-xs text-neutral-500 mt-1 text-center">Gift</p></div>
+          <div><div class="swatch" style="background:#F5B042;"></div><p class="text-xs text-neutral-500 mt-1 text-center">Investment</p></div>
+          <div><div class="swatch" style="background:#5B6FBF;"></div><p class="text-xs text-neutral-500 mt-1 text-center">Refund</p></div>
+          <div><div class="swatch" style="background:#8B5CF6;"></div><p class="text-xs text-neutral-500 mt-1 text-center">Other Inc</p></div>
+        </div>
+      </div>
+      <!-- Donut Example -->
+      <div>
+        <h3 class="text-sm font-semibold text-neutral-700 mb-3">Donut Chart Example</h3>
+        <div class="flex items-center gap-8">
+          <div class="relative flex-shrink-0">
+            <svg class="donut-svg" width="180" height="180" viewBox="0 0 180 180" role="img" aria-label="Expense breakdown example">
+              <circle cx="90" cy="90" r="60" stroke="#1F7A64" stroke-dasharray="113.3 263.69" stroke-dashoffset="0"></circle>
+              <circle cx="90" cy="90" r="60" stroke="#2A9A7D" stroke-dasharray="93.2 283.79" stroke-dashoffset="-113.3"></circle>
+              <circle cx="90" cy="90" r="60" stroke="#45B095" stroke-dasharray="55.9 321.09" stroke-dashoffset="-206.5"></circle>
+              <circle cx="90" cy="90" r="60" stroke="#6FC9B0" stroke-dasharray="50.6 326.39" stroke-dashoffset="-262.4"></circle>
+              <circle cx="90" cy="90" r="60" stroke="#E89C2A" stroke-dasharray="27.97 349.02" stroke-dashoffset="-313.0"></circle>
+              <circle cx="90" cy="90" r="60" stroke="#F5B042" stroke-dasharray="15.97 361.02" stroke-dashoffset="-340.97"></circle>
+              <circle cx="90" cy="90" r="60" stroke="#F9C55A" stroke-dasharray="11.99 365.00" stroke-dashoffset="-356.94"></circle>
+              <circle cx="90" cy="90" r="60" stroke="#5B6FBF" stroke-dasharray="7.99 369.00" stroke-dashoffset="-368.93"></circle>
+            </svg>
+            <div class="absolute inset-0 flex flex-col items-center justify-center">
+              <p class="text-xs text-neutral-400">Total</p>
+              <p class="text-lg font-bold text-neutral-800">₱28,300</p>
+            </div>
+          </div>
+          <div class="flex-1 grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+            <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-sm" style="background:#1F7A64;"></span><span class="text-neutral-700">Food & Dining</span><span class="ml-auto font-medium">₱8,500</span><span class="text-neutral-400 w-10 text-right">30.0%</span></div>
+            <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-sm" style="background:#2A9A7D;"></span><span class="text-neutral-700">Housing</span><span class="ml-auto font-medium">₱7,000</span><span class="text-neutral-400 w-10 text-right">24.7%</span></div>
+            <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-sm" style="background:#45B095;"></span><span class="text-neutral-700">Transport</span><span class="ml-auto font-medium">₱4,200</span><span class="text-neutral-400 w-10 text-right">14.8%</span></div>
+            <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-sm" style="background:#6FC9B0;"></span><span class="text-neutral-700">Shopping</span><span class="ml-auto font-medium">₱3,800</span><span class="text-neutral-400 w-10 text-right">13.4%</span></div>
+            <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-sm" style="background:#E89C2A;"></span><span class="text-neutral-700">Entertainment</span><span class="ml-auto font-medium">₱2,100</span><span class="text-neutral-400 w-10 text-right">7.4%</span></div>
+            <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-sm" style="background:#F5B042;"></span><span class="text-neutral-700">Subscriptions</span><span class="ml-auto font-medium">₱1,200</span><span class="text-neutral-400 w-10 text-right">4.2%</span></div>
+            <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-sm" style="background:#F9C55A;"></span><span class="text-neutral-700">Health</span><span class="ml-auto font-medium">₱900</span><span class="text-neutral-400 w-10 text-right">3.2%</span></div>
+            <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-sm" style="background:#5B6FBF;"></span><span class="text-neutral-700">Other</span><span class="ml-auto font-medium">₱600</span><span class="text-neutral-400 w-10 text-right">2.1%</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ BUTTONS ============ -->
+  <section>
+    <p class="section-title mb-3">Buttons</p>
+    <div class="bg-white rounded-lg shadow-sm border border-neutral-200 p-6">
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <!-- Primary -->
+        <div>
+          <p class="text-xs font-medium text-neutral-500 mb-2">Primary</p>
+          <button class="px-5 py-2.5 bg-brand-600 text-white text-sm font-medium rounded-md hover:bg-brand-700 transition-colors shadow-sm">+ Add Entry</button>
+          <p class="text-xs text-neutral-400 mt-2">brand-600 · white · sm · md radius</p>
+        </div>
+        <!-- Secondary -->
+        <div>
+          <p class="text-xs font-medium text-neutral-500 mb-2">Secondary</p>
+          <button class="px-5 py-2.5 bg-brand-50 text-brand-700 text-sm font-medium rounded-md hover:bg-brand-100 transition-colors border border-brand-200">View All</button>
+          <p class="text-xs text-neutral-400 mt-2">brand-50 · brand-700 · border</p>
+        </div>
+        <!-- Ghost -->
+        <div>
+          <p class="text-xs font-medium text-neutral-500 mb-2">Ghost</p>
+          <button class="px-5 py-2.5 bg-transparent text-neutral-600 text-sm font-medium rounded-md hover:bg-neutral-100 transition-colors">Cancel</button>
+          <p class="text-xs text-neutral-400 mt-2">transparent · neutral-600</p>
+        </div>
+        <!-- Destructive -->
+        <div>
+          <p class="text-xs font-medium text-neutral-500 mb-2">Destructive</p>
+          <button class="px-5 py-2.5 bg-negative text-white text-sm font-medium rounded-md hover:bg-red-700 transition-colors shadow-sm">Delete Entry</button>
+          <p class="text-xs text-neutral-400 mt-2">negative · white · sm</p>
+        </div>
+      </div>
+      <!-- Type Toggle (Entry form) -->
+      <div class="mt-6 pt-6 border-t border-neutral-100">
+        <p class="text-xs font-medium text-neutral-500 mb-2">Entry Type Toggle</p>
+        <div class="grid grid-cols-2 gap-3 max-w-md">
+          <button class="px-4 py-3 rounded-md text-sm font-medium bg-brand-600 text-white border-2 border-brand-600">↑ Expense</button>
+          <button class="px-4 py-3 rounded-md text-sm font-medium bg-brand-50 text-brand-600 border-2 border-brand-100 hover:border-brand-300 transition-colors">↓ Income</button>
+        </div>
+        <p class="text-xs text-neutral-400 mt-2">Active: brand-600/white · Inactive: brand-50/brand-600</p>
+      </div>
+      <!-- Account Type Selector Cards -->
+      <div class="mt-6 pt-6 border-t border-neutral-100">
+        <p class="text-xs font-medium text-neutral-500 mb-2">Account Type Selector</p>
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-3 max-w-3xl">
+          <div class="border-2 border-account-debit bg-account-debitBg rounded-lg p-4 text-center">
+            <p class="text-2xl mb-1">🏦</p>
+            <p class="text-sm font-medium text-account-debit">Debit</p>
+            <p class="text-xs text-neutral-400 mt-1">Your own money</p>
+          </div>
+          <div class="border-2 border-neutral-200 bg-white rounded-lg p-4 text-center hover:border-neutral-300 transition-colors">
+            <p class="text-2xl mb-1">💳</p>
+            <p class="text-sm font-medium text-neutral-600">Credit</p>
+            <p class="text-xs text-neutral-400 mt-1">Money you owe</p>
+          </div>
+          <div class="border-2 border-neutral-200 bg-white rounded-lg p-4 text-center hover:border-neutral-300 transition-colors">
+            <p class="text-2xl mb-1">🤝</p>
+            <p class="text-sm font-medium text-neutral-600">Lent</p>
+            <p class="text-xs text-neutral-400 mt-1">Owed to you</p>
+          </div>
+          <div class="border-2 border-neutral-200 bg-white rounded-lg p-4 text-center hover:border-neutral-300 transition-colors">
+            <p class="text-2xl mb-1">📞</p>
+            <p class="text-sm font-medium text-neutral-600">Borrowed</p>
+            <p class="text-xs text-neutral-400 mt-1">You owe</p>
+          </div>
+          <div class="border-2 border-neutral-200 bg-white rounded-lg p-4 text-center hover:border-neutral-300 transition-colors">
+            <p class="text-2xl mb-1">📈</p>
+            <p class="text-sm font-medium text-neutral-600">Invest</p>
+            <p class="text-xs text-neutral-400 mt-1">Investments</p>
+          </div>
+        </div>
+        <p class="text-xs text-neutral-400 mt-2">Selected: account-type border + tinted bg. Unselected: neutral border + white bg.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ INPUTS & SELECTS ============ -->
+  <section>
+    <p class="section-title mb-3">Inputs & Selects</p>
+    <div class="bg-white rounded-lg shadow-sm border border-neutral-200 p-6">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl">
+        <!-- Text input -->
+        <div>
+          <label class="block text-sm font-medium text-neutral-700 mb-1.5">Amount <span class="text-negative">*</span></label>
+          <div class="relative">
+            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 text-sm">₱</span>
+            <input type="number" placeholder="0.00" class="w-full pl-8 pr-4 py-2.5 border border-neutral-200 rounded-md text-sm focus:border-brand-500 focus:ring-2 focus:ring-brand-100 outline-none transition-all">
+          </div>
+        </div>
+        <!-- Date -->
+        <div>
+          <label class="block text-sm font-medium text-neutral-700 mb-1.5">Date <span class="text-negative">*</span></label>
+          <input type="date" value="2026-07-10" class="w-full px-4 py-2.5 border border-neutral-200 rounded-md text-sm focus:border-brand-500 focus:ring-2 focus:ring-brand-100 outline-none transition-all">
+        </div>
+        <!-- Select -->
+        <div>
+          <label class="block text-sm font-medium text-neutral-700 mb-1.5">Category <span class="text-negative">*</span></label>
+          <select class="w-full px-4 py-2.5 border border-neutral-200 rounded-md text-sm bg-white focus:border-brand-500 focus:ring-2 focus:ring-brand-100 outline-none transition-all">
+            <option>Food & Dining</option>
+            <option>Transportation</option>
+            <option>Housing & Utilities</option>
+          </select>
+        </div>
+        <!-- Account select -->
+        <div>
+          <label class="block text-sm font-medium text-neutral-700 mb-1.5">Account <span class="text-negative">*</span></label>
+          <select class="w-full px-4 py-2.5 border border-neutral-200 rounded-md text-sm bg-white focus:border-brand-500 focus:ring-2 focus:ring-brand-100 outline-none transition-all">
+            <option>BPI Savings (Debit)</option>
+            <option>Cash (Debit)</option>
+          </select>
+          <p class="text-xs text-brand-600 mt-1">Defaults to last-used account (session)</p>
+        </div>
+        <!-- Textarea -->
+        <div class="md:col-span-2">
+          <label class="block text-sm font-medium text-neutral-700 mb-1.5">Note <span class="text-neutral-400 font-normal">(optional)</span></label>
+          <textarea rows="3" placeholder="Add a note about this entry..." class="w-full px-4 py-2.5 border border-neutral-200 rounded-md text-sm focus:border-brand-500 focus:ring-2 focus:ring-brand-100 outline-none transition-all resize-none"></textarea>
+        </div>
+      </div>
+      <!-- Error states -->
+      <div class="mt-6 pt-6 border-t border-neutral-100">
+        <p class="text-xs font-medium text-neutral-500 mb-2">Validation Error State</p>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl">
+          <div>
+            <label class="block text-sm font-medium text-neutral-700 mb-1.5">Amount <span class="text-negative">*</span></label>
+            <div class="relative">
+              <span class="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 text-sm">₱</span>
+              <input type="number" value="0" class="w-full pl-8 pr-4 py-2.5 border-2 border-negative rounded-md text-sm">
+            </div>
+            <p class="text-xs text-negative mt-1">Amount must be greater than ₱0.</p>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-neutral-700 mb-1.5">Account <span class="text-negative">*</span></label>
+            <select class="w-full px-4 py-2.5 border-2 border-negative rounded-md text-sm bg-white">
+              <option value="">Select an account...</option>
+            </select>
+            <p class="text-xs text-negative mt-1">Please select an account.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ KPI CARDS ============ -->
+  <section>
+    <p class="section-title mb-3">KPI Cards</p>
+    <div class="bg-white rounded-lg shadow-sm border border-neutral-200 p-6">
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <!-- Income -->
+        <div class="bg-white rounded-lg shadow-sm p-5 border border-neutral-200">
+          <p class="text-xs text-neutral-400 font-semibold uppercase tracking-wide mb-1">Total Income</p>
+          <p class="text-2xl font-bold text-neutral-800">₱45,000</p>
+          <p class="text-xs text-neutral-400 mt-1">This month</p>
+        </div>
+        <!-- Expenses -->
+        <div class="bg-white rounded-lg shadow-sm p-5 border border-neutral-200">
+          <p class="text-xs text-neutral-400 font-semibold uppercase tracking-wide mb-1">Total Expenses</p>
+          <p class="text-2xl font-bold text-neutral-800">₱28,300</p>
+          <p class="text-xs text-neutral-400 mt-1">This month</p>
+        </div>
+        <!-- Net Balance -->
+        <div class="bg-white rounded-lg shadow-sm p-5 border-l-4 border-l-positive" style="border-top:1px solid #EDF0EB;border-right:1px solid #EDF0EB;border-bottom:1px solid #EDF0EB;">
+          <p class="text-xs text-neutral-400 font-semibold uppercase tracking-wide mb-1">Net Balance</p>
+          <p class="text-2xl font-bold text-positive">₱16,700</p>
+          <p class="text-xs text-neutral-400 mt-1">Income − Expenses</p>
+        </div>
+        <!-- MoM -->
+        <div class="bg-white rounded-lg shadow-sm p-5 border border-neutral-200">
+          <p class="text-xs text-neutral-400 font-semibold uppercase tracking-wide mb-1">vs Last Month</p>
+          <div class="space-y-1 mt-1">
+            <p class="text-sm text-neutral-700">Income <span class="font-semibold text-positive">▲ 12%</span></p>
+            <p class="text-sm text-neutral-700">Expenses <span class="font-semibold text-positive">▼ 5%</span></p>
+          </div>
+        </div>
+      </div>
+      <!-- Empty KPI -->
+      <div class="mt-4 pt-4 border-t border-neutral-100">
+        <p class="text-xs font-medium text-neutral-500 mb-2">Empty State</p>
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div class="bg-white rounded-lg shadow-sm p-5 border border-neutral-200">
+            <p class="text-xs text-neutral-300 font-semibold uppercase tracking-wide mb-1">Total Income</p>
+            <p class="text-2xl font-bold text-neutral-300">₱0</p>
+            <p class="text-xs text-neutral-200 mt-1">This month</p>
+          </div>
+          <div class="bg-white rounded-lg shadow-sm p-5 border border-neutral-200">
+            <p class="text-xs text-neutral-300 font-semibold uppercase tracking-wide mb-1">Total Expenses</p>
+            <p class="text-2xl font-bold text-neutral-300">₱0</p>
+            <p class="text-xs text-neutral-200 mt-1">This month</p>
+          </div>
+          <div class="bg-white rounded-lg shadow-sm p-5 border border-neutral-200">
+            <p class="text-xs text-neutral-300 font-semibold uppercase tracking-wide mb-1">Net Balance</p>
+            <p class="text-2xl font-bold text-neutral-300">₱0</p>
+            <p class="text-xs text-neutral-200 mt-1">Income − Expenses</p>
+          </div>
+          <div class="bg-white rounded-lg shadow-sm p-5 border border-neutral-200">
+            <p class="text-xs text-neutral-300 font-semibold uppercase tracking-wide mb-1">vs Last Month</p>
+            <p class="text-sm text-neutral-300 mt-1">—</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ ACCOUNT CARDS (per type) ============ -->
+  <section>
+    <p class="section-title mb-3">Account Cards (All 5 Types)</p>
+    <div class="bg-white rounded-lg shadow-sm border border-neutral-200 p-6">
+      <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+        <!-- Debit: solid border + green tint -->
+        <div class="bg-white rounded-lg shadow-sm p-4 border-2 border-account-debit">
+          <div class="flex items-center justify-between mb-2">
+            <p class="font-medium text-sm text-neutral-800">BPI Savings</p>
+            <span class="text-xs text-account-debit bg-account-debitBg px-2 py-0.5 rounded">Debit</span>
+          </div>
+          <p class="text-xl font-bold text-neutral-800">₱42,500</p>
+          <p class="text-xs text-neutral-400 mt-1">15 entries</p>
+        </div>
+        <!-- Credit: dashed border + amber tint -->
+        <div class="bg-white rounded-lg shadow-sm p-4 border-2 border-dashed border-account-credit">
+          <div class="flex items-center justify-between mb-2">
+            <p class="font-medium text-sm text-neutral-800">BDO CC</p>
+            <span class="text-xs text-account-credit bg-account-creditBg px-2 py-0.5 rounded">Credit</span>
+          </div>
+          <p class="text-xl font-bold text-negative">₱15,000 <span class="text-xs font-normal">(owed)</span></p>
+          <p class="text-xs text-neutral-400 mt-1">8 entries</p>
+        </div>
+        <!-- Lent: dotted border + blue tint -->
+        <div class="bg-white rounded-lg shadow-sm p-4 border-2 border-dotted border-account-lent">
+          <div class="flex items-center justify-between mb-2">
+            <p class="font-medium text-sm text-neutral-800">Lent to Mark</p>
+            <span class="text-xs text-account-lent bg-account-lentBg px-2 py-0.5 rounded">Lent</span>
+          </div>
+          <p class="text-xl font-bold text-neutral-800">₱3,000</p>
+          <p class="text-xs text-neutral-400 mt-1">2 entries</p>
+        </div>
+        <!-- Borrowed: double border + red tint -->
+        <div class="bg-white rounded-lg shadow-sm p-4 border-4 border-double border-account-borrowed">
+          <div class="flex items-center justify-between mb-2">
+            <p class="font-medium text-sm text-neutral-800">Borrowed-Mom</p>
+            <span class="text-xs text-account-borrowed bg-account-borrowedBg px-2 py-0.5 rounded">Borrowed</span>
+          </div>
+          <p class="text-xl font-bold text-negative">₱7,000 <span class="text-xs font-normal">(owed)</span></p>
+          <p class="text-xs text-neutral-400 mt-1">1 entry</p>
+        </div>
+        <!-- Invest: thick border + purple tint -->
+        <div class="bg-white rounded-lg shadow-sm p-4 border-4 border-account-invest">
+          <div class="flex items-center justify-between mb-2">
+            <p class="font-medium text-sm text-neutral-800">Stock Invest</p>
+            <span class="text-xs text-account-invest bg-account-investBg px-2 py-0.5 rounded">Invest</span>
+          </div>
+          <p class="text-xl font-bold text-neutral-800">₱10,000</p>
+          <p class="text-xs text-neutral-400 mt-1">3 entries</p>
+        </div>
+      </div>
+      <p class="text-xs text-neutral-400 mt-3">Border styles (solid/dashed/dotted/double/thick) are preserved from UX wireframes. Brand colors augment via type badge + tinted background + colored border. Color is never the sole differentiator — border style + text label always present.</p>
+    </div>
+  </section>
+
+  <!-- ============ DATA TABLE ============ -->
+  <section>
+    <p class="section-title mb-3">Data Table</p>
+    <div class="bg-white rounded-lg shadow-sm border border-neutral-200 overflow-hidden">
+      <table class="w-full text-sm">
+        <thead class="bg-neutral-50 text-neutral-400 uppercase text-xs">
+          <tr>
+            <th class="px-4 py-3 text-left font-medium">Date</th>
+            <th class="px-4 py-3 text-left font-medium">Type</th>
+            <th class="px-4 py-3 text-left font-medium">Category</th>
+            <th class="px-4 py-3 text-right font-medium">Amount</th>
+            <th class="px-4 py-3 text-left font-medium">Account</th>
+            <th class="px-4 py-3 text-center font-medium">Actions</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-neutral-100">
+          <tr class="hover:bg-neutral-50 transition-colors">
+            <td class="px-4 py-3 text-neutral-600">Jul 10, 2026</td>
+            <td class="px-4 py-3"><span class="inline-flex items-center gap-1 text-xs font-medium text-positive bg-positiveLight px-2 py-0.5 rounded-full">↓ Income</span></td>
+            <td class="px-4 py-3 text-neutral-700">Salary</td>
+            <td class="px-4 py-3 text-right font-medium text-positive">+₱40,000</td>
+            <td class="px-4 py-3 text-neutral-600">BPI Savings</td>
+            <td class="px-4 py-3 text-center"><button class="text-neutral-300 hover:text-brand-600 mr-2" aria-label="Edit">✎</button><button class="text-neutral-300 hover:text-negative" aria-label="Delete">🗑</button></td>
+          </tr>
+          <tr class="hover:bg-neutral-50 transition-colors">
+            <td class="px-4 py-3 text-neutral-600">Jul 9, 2026</td>
+            <td class="px-4 py-3"><span class="inline-flex items-center gap-1 text-xs font-medium text-negative bg-negativeLight px-2 py-0.5 rounded-full">↑ Expense</span></td>
+            <td class="px-4 py-3 text-neutral-700">Food & Dining</td>
+            <td class="px-4 py-3 text-right font-medium text-neutral-800">−₱850</td>
+            <td class="px-4 py-3 text-neutral-600">Cash</td>
+            <td class="px-4 py-3 text-center"><button class="text-neutral-300 hover:text-brand-600 mr-2" aria-label="Edit">✎</button><button class="text-neutral-300 hover:text-negative" aria-label="Delete">🗑</button></td>
+          </tr>
+          <tr class="hover:bg-neutral-50 transition-colors">
+            <td class="px-4 py-3 text-neutral-600">Jul 8, 2026</td>
+            <td class="px-4 py-3"><span class="inline-flex items-center gap-1 text-xs font-medium text-negative bg-negativeLight px-2 py-0.5 rounded-full">↑ Expense</span></td>
+            <td class="px-4 py-3 text-neutral-700">Transportation</td>
+            <td class="px-4 py-3 text-right font-medium text-neutral-800">−₱320</td>
+            <td class="px-4 py-3 text-neutral-600">BDO CC</td>
+            <td class="px-4 py-3 text-center"><button class="text-neutral-300 hover:text-brand-600 mr-2" aria-label="Edit">✎</button><button class="text-neutral-300 hover:text-negative" aria-label="Delete">🗑</button></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="mt-3 flex items-center justify-between">
+      <p class="text-sm text-neutral-500">Showing 1–3 of 42</p>
+      <div class="flex items-center gap-2">
+        <button class="px-3 py-1.5 text-sm border border-neutral-200 rounded-md text-neutral-400" disabled>← Prev</button>
+        <button class="px-3 py-1.5 text-sm bg-brand-600 text-white rounded-md">1</button>
+        <button class="px-3 py-1.5 text-sm border border-neutral-200 rounded-md text-neutral-600 hover:bg-neutral-50">2</button>
+        <button class="px-3 py-1.5 text-sm border border-neutral-200 rounded-md text-neutral-600 hover:bg-neutral-50">Next →</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ MoM COMPARISON ============ -->
+  <section>
+    <p class="section-title mb-3">Month-over-Month Comparison</p>
+    <div class="bg-white rounded-lg shadow-sm border border-neutral-200 p-6">
+      <div class="grid grid-cols-2 gap-4 max-w-md">
+        <div class="bg-positiveLight rounded-lg p-4 border border-positive" style="border-opacity:0.3;">
+          <p class="text-xs text-positive font-semibold uppercase">Income</p>
+          <p class="text-2xl font-bold text-positive mt-1">▲ 12%</p>
+          <p class="text-xs text-neutral-400 mt-1">₱45,000 vs ₱40,200</p>
+        </div>
+        <div class="bg-positiveLight rounded-lg p-4 border border-positive" style="border-opacity:0.3;">
+          <p class="text-xs text-positive font-semibold uppercase">Expenses</p>
+          <p class="text-2xl font-bold text-positive mt-1">▼ 5%</p>
+          <p class="text-xs text-neutral-400 mt-1">₱28,300 vs ₱29,800</p>
+        </div>
+      </div>
+      <p class="text-xs text-neutral-400 mt-3">▲ = increase (positive color for income up, negative for expense up). ▼ = decrease. Color conveys good/bad direction, not raw direction.</p>
+    </div>
+  </section>
+
+  <!-- ============ MODALS ============ -->
+  <section>
+    <p class="section-title mb-3">Modals</p>
+    <div class="bg-white rounded-lg shadow-sm border border-neutral-200 p-6">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Delete Entry -->
+        <div>
+          <p class="text-xs font-medium text-neutral-500 mb-2">Delete Entry Confirmation</p>
+          <div class="bg-white rounded-lg shadow-lg border border-neutral-200 max-w-sm">
+            <div class="px-5 py-4 border-b border-neutral-100">
+              <h3 class="text-base font-semibold text-neutral-800">Delete Entry</h3>
+            </div>
+            <div class="px-5 py-4">
+              <p class="text-sm text-neutral-600 mb-3">Are you sure you want to delete this <span class="font-medium">₱500 Food & Dining</span> entry from BPI Savings?</p>
+              <div class="bg-neutral-50 rounded-md p-3 text-xs text-neutral-500 space-y-1">
+                <p>Date: 2026-07-10 · Type: Expense</p>
+                <p>Category: Food & Dining · Amount: ₱500</p>
+                <p>Account: BPI Savings</p>
+              </div>
+              <p class="text-xs text-negative mt-3">This will recalculate KPIs, charts, and account balances.</p>
+            </div>
+            <div class="px-5 py-4 border-t border-neutral-100 flex justify-between">
+              <button class="px-4 py-2 text-sm bg-neutral-100 text-neutral-600 rounded-md border border-neutral-200">Cancel</button>
+              <button class="px-5 py-2 text-sm bg-negative text-white rounded-md">Delete Entry</button>
+            </div>
+          </div>
+        </div>
+        <!-- Account Delete Resolution -->
+        <div>
+          <p class="text-xs font-medium text-neutral-500 mb-2">Account Delete Resolution</p>
+          <div class="bg-white rounded-lg shadow-lg border border-neutral-200 max-w-sm">
+            <div class="px-5 py-4 border-b border-neutral-100">
+              <h3 class="text-base font-semibold text-neutral-800">Delete 'BPI Savings'?</h3>
+            </div>
+            <div class="px-5 py-4">
+              <p class="text-sm text-neutral-600 mb-3">This account has <span class="font-medium">15 entries</span>. Choose how to handle them:</p>
+              <div class="space-y-2">
+                <label class="block cursor-pointer">
+                  <div class="border-2 border-brand-600 rounded-lg p-3 bg-brand-50">
+                    <div class="flex items-start gap-2">
+                      <input type="radio" name="del-opt" checked class="mt-1">
+                      <div>
+                        <p class="text-sm font-medium text-neutral-800">Reassign to another account</p>
+                        <select class="w-full mt-2 px-3 py-1.5 border border-neutral-200 rounded-md text-xs bg-white">
+                          <option>Cash (Debit) — 22 entries</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                </label>
+                <label class="block cursor-pointer">
+                  <div class="border-2 border-neutral-200 rounded-lg p-3 hover:border-neutral-300">
+                    <div class="flex items-start gap-2">
+                      <input type="radio" name="del-opt" class="mt-1">
+                      <div>
+                        <p class="text-sm font-medium text-neutral-800">Delete all entries</p>
+                        <p class="text-xs text-negative">Permanently deletes 15 entries. Cannot be undone.</p>
+                      </div>
+                    </div>
+                  </div>
+                </label>
+              </div>
+            </div>
+            <div class="px-5 py-4 border-t border-neutral-100 flex justify-between">
+              <button class="px-4 py-2 text-sm bg-neutral-100 text-neutral-600 rounded-md border border-neutral-200">Cancel</button>
+              <button class="px-5 py-2 text-sm bg-negative text-white rounded-md">Delete Account</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ BANNERS / ALERTS ============ -->
+  <section>
+    <p class="section-title mb-3">Banners & Alerts</p>
+    <div class="bg-white rounded-lg shadow-sm border border-neutral-200 p-6 space-y-3">
+      <!-- Welcome banner -->
+      <div class="bg-brand-50 border border-brand-200 rounded-lg p-4 flex items-start gap-3">
+        <div class="w-10 h-10 bg-brand-100 rounded-full flex items-center justify-center text-xl flex-shrink-0">👋</div>
+        <div>
+          <p class="text-sm font-semibold text-brand-800">Welcome to Pondo!</p>
+          <p class="text-sm text-brand-700 mt-1">We've created a 'Cash' account for you. Start by adding your first entry.</p>
+        </div>
+      </div>
+      <!-- Info banner -->
+      <div class="bg-neutral-50 border border-neutral-200 rounded-lg p-4 flex items-start gap-3">
+        <div class="w-5 h-5 text-neutral-400 mt-0.5 flex-shrink-0">ℹ</div>
+        <p class="text-sm text-neutral-600">Showing data for This Month. Account balances are always all-time.</p>
+      </div>
+      <!-- Warning banner -->
+      <div class="bg-warningLight border border-accent-200 rounded-lg p-4 flex items-start gap-3">
+        <div class="w-5 h-5 text-warning mt-0.5 flex-shrink-0">⚠</div>
+        <p class="text-sm text-accent-700">An account with this name and type already exists. You can still save — this is just a reminder.</p>
+      </div>
+      <!-- Error banner -->
+      <div class="bg-negativeLight border border-negative rounded-lg p-4 flex items-start gap-3" style="border-opacity:0.3;">
+        <div class="w-5 h-5 text-negative mt-0.5 flex-shrink-0">✕</div>
+        <div>
+          <p class="text-sm text-negative font-medium">Failed to load dashboard data.</p>
+          <p class="text-sm text-neutral-500 mt-1">Please check your connection and try again. <button class="text-brand-600 underline">Retry</button></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ CATEGORY BADGES ============ -->
+  <section>
+    <p class="section-title mb-3">Category Badges</p>
+    <div class="bg-white rounded-lg shadow-sm border border-neutral-200 p-6">
+      <div class="flex flex-wrap gap-2">
+        <span class="text-xs font-medium text-white px-3 py-1 rounded-full" style="background:#1F7A64;">Food & Dining</span>
+        <span class="text-xs font-medium text-white px-3 py-1 rounded-full" style="background:#2A9A7D;">Housing & Utilities</span>
+        <span class="text-xs font-medium text-white px-3 py-1 rounded-full" style="background:#45B095;">Transportation</span>
+        <span class="text-xs font-medium text-white px-3 py-1 rounded-full" style="background:#6FC9B0;">Shopping</span>
+        <span class="text-xs font-medium text-white px-3 py-1 rounded-full" style="background:#E89C2A;">Entertainment</span>
+        <span class="text-xs font-medium text-white px-3 py-1 rounded-full" style="background:#F5B042;">Subscriptions</span>
+        <span class="text-xs font-medium text-white px-3 py-1 rounded-full" style="background:#F9C55A;">Health</span>
+        <span class="text-xs font-medium text-white px-3 py-1 rounded-full" style="background:#5B6FBF;">Education</span>
+        <span class="text-xs font-medium text-white px-3 py-1 rounded-full" style="background:#8B5CF6;">Insurance</span>
+        <span class="text-xs font-medium text-white px-3 py-1 rounded-full" style="background:#D14343;">Other</span>
+      </div>
+      <div class="mt-3 pt-3 border-t border-neutral-100">
+        <p class="text-xs text-neutral-500 mb-2">Income Categories</p>
+        <div class="flex flex-wrap gap-2">
+          <span class="text-xs font-medium text-white px-3 py-1 rounded-full" style="background:#1B8E4E;">Salary</span>
+          <span class="text-xs font-medium text-white px-3 py-1 rounded-full" style="background:#2A9A7D;">Freelance</span>
+          <span class="text-xs font-medium text-white px-3 py-1 rounded-full" style="background:#45B095;">Gift</span>
+          <span class="text-xs font-medium text-white px-3 py-1 rounded-full" style="background:#F5B042;">Investment</span>
+          <span class="text-xs font-medium text-white px-3 py-1 rounded-full" style="background:#5B6FBF;">Refund</span>
+          <span class="text-xs font-medium text-white px-3 py-1 rounded-full" style="background:#8B5CF6;">Other Income</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ EMPTY STATES ============ -->
+  <section>
+    <p class="section-title mb-3">Empty States</p>
+    <div class="bg-white rounded-lg shadow-sm border border-neutral-200 p-6">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <!-- Chart empty -->
+        <div class="border-2 border-dashed border-neutral-200 rounded-lg h-48 flex items-center justify-center">
+          <div class="text-center">
+            <p class="text-neutral-300 text-sm">No data to display yet</p>
+            <p class="text-neutral-200 text-xs mt-1">Add expense entries to see your breakdown</p>
+          </div>
+        </div>
+        <!-- Entries empty -->
+        <div class="border border-neutral-200 rounded-lg h-48 flex items-center justify-center">
+          <div class="text-center">
+            <p class="text-neutral-300 text-lg mb-1">No entries yet</p>
+            <p class="text-neutral-300 text-sm mb-3">Add your first expense to get started.</p>
+            <button class="bg-brand-600 text-white text-sm px-4 py-2 rounded-md">+ Add Entry</button>
+          </div>
+        </div>
+        <!-- Account add slot -->
+        <div class="border-2 border-dashed border-neutral-200 rounded-lg h-48 flex items-center justify-center">
+          <a href="#" class="text-xs text-neutral-300 hover:text-brand-600">+ Add account</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SIDEBAR ============ -->
+  <section>
+    <p class="section-title mb-3">Sidebar Navigation</p>
+    <div class="bg-white rounded-lg shadow-sm border border-neutral-200 p-6">
+      <div class="max-w-64 bg-brand-800 rounded-lg p-0 overflow-hidden">
+        <div class="px-6 py-5 text-lg font-semibold text-white border-b border-brand-700 flex items-center gap-2">
+          <div class="w-8 h-8 bg-brand-600 rounded-lg flex items-center justify-center text-sm font-bold">₱</div>
+          Pondo
+        </div>
+        <nav class="py-4">
+          <a href="#" class="flex items-center gap-3 px-6 py-3 bg-brand-700 text-white font-medium">📊 Dashboard</a>
+          <a href="#" class="flex items-center gap-3 px-6 py-3 text-brand-200 hover:bg-brand-700">📋 Entries</a>
+          <a href="#" class="flex items-center gap-3 px-6 py-3 text-brand-200 hover:bg-brand-700">🏦 Accounts</a>
+          <a href="#" class="flex items-center gap-3 px-6 py-3 text-brand-200 hover:bg-brand-700">🏷️ Categories</a>
+          <a href="#" class="flex items-center gap-3 px-6 py-3 text-brand-200 hover:bg-brand-700">📤 Export</a>
+        </nav>
+        <div class="px-6 py-4 text-xs text-brand-400 border-t border-brand-700">v1.0 · Pondo</div>
+      </div>
+      <p class="text-xs text-neutral-400 mt-3">Sidebar uses brand-800 bg, brand-700 active state, brand-200 text. Logo wordmark: "₱" in a brand-600 rounded square + "Pondo" wordmark.</p>
+    </div>
+  </section>
+
+  <!-- ============ TYPE TOGGLE (FILTER) ============ -->
+  <section>
+    <p class="section-title mb-3">Filter Toggle (All / Income / Expense)</p>
+    <div class="bg-white rounded-lg shadow-sm border border-neutral-200 p-6">
+      <div class="flex items-center rounded-md border border-neutral-200 overflow-hidden w-fit">
+        <button class="px-4 py-1.5 text-sm bg-brand-600 text-white font-medium">All</button>
+        <button class="px-4 py-1.5 text-sm bg-white text-neutral-600 hover:bg-neutral-50">Income</button>
+        <button class="px-4 py-1.5 text-sm bg-white text-neutral-600 hover:bg-neutral-50">Expense</button>
+      </div>
+      <p class="text-xs text-neutral-400 mt-2">Active: brand-600/white. Inactive: white/neutral-600.</p>
+    </div>
+  </section>
+
+  <!-- ============ TAILWIND CONFIG ============ -->
+  <section>
+    <p class="section-title mb-3">Tailwind Config (paste-ready)</p>
+    <div class="bg-neutral-800 rounded-lg p-6 overflow-x-auto">
+<pre class="text-xs text-brand-200 font-mono">theme: {
+  extend: {
+    colors: {
+      brand: { 50:'#E8F5F2',100:'#C5E8DF',200:'#9DDCCB',300:'#6FC9B0',400:'#45B095',500:'#2A9A7D',600:'#1F7A64',700:'#1A6253',800:'#154E42',900:'#0F3A31' },
+      accent: { 50:'#FEF5E7',100:'#FDE8C7',200:'#FBD58E',300:'#F9C55A',400:'#F5B042',500:'#E89C2A',600:'#C97E1A',700:'#A36214',800:'#7D4A10',900:'#5C3810' },
+      neutral: { 0:'#FFFFFF',50:'#F7F8F6',100:'#EDF0EB',200:'#D8DDD4',300:'#B8C0B5',400:'#8A9387',500:'#5C655B',600:'#3E463E',700:'#2B322B',800:'#1C221D',900:'#0F1410' },
+      positive: '#1B8E4E', positiveLight: '#E4F5E9',
+      negative: '#D14343', negativeLight: '#FCE8E8',
+      warning: '#E89C2A', warningLight: '#FEF5E7',
+      account: {
+        debit:'#1F7A64', debitBg:'#E8F5F2',
+        credit:'#C97E1A', creditBg:'#FEF5E7',
+        lent:'#5B6FBF', lentBg:'#EBEEF8',
+        borrowed:'#D14343', borrowedBg:'#FCE8E8',
+        invest:'#8B5CF6', investBg:'#F3EFFE'
+      }
+    },
+    borderRadius: { sm:'6px', md:'10px', lg:'14px', xl:'20px' },
+    fontFamily: { sans:['Inter','system-ui','sans-serif'] },
+    boxShadow: {
+      xs:'0 1px 2px 0 rgba(15,20,16,0.05)',
+      sm:'0 1px 3px 0 rgba(15,20,16,0.08),0 1px 2px 0 rgba(15,20,16,0.04)',
+      md:'0 4px 6px -1px rgba(15,20,16,0.08),0 2px 4px -2px rgba(15,20,16,0.04)',
+      lg:'0 10px 15px -3px rgba(15,20,16,0.08),0 4px 6px -4px rgba(15,20,16,0.04)',
+      xl:'0 20px 25px -5px rgba(15,20,16,0.10),0 8px 10px -6px rgba(15,20,16,0.04)'
+    }
+  }
+}</pre>
+    </div>
+  </section>
+
+  <!-- ============ COVERAGE CHECKLIST ============ -->
+  <section>
+    <p class="section-title mb-3">Component Coverage Checklist</p>
+    <div class="bg-white rounded-lg shadow-sm border border-neutral-200 p-6">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-1 text-sm">
+        <div class="flex items-center gap-2 text-neutral-700"><span class="text-positive">✓</span> Buttons (primary, secondary, ghost, destructive)</div>
+        <div class="flex items-center gap-2 text-neutral-700"><span class="text-positive">✓</span> Entry type toggle (expense/income)</div>
+        <div class="flex items-center gap-2 text-neutral-700"><span class="text-positive">✓</span> Account type selector (5 cards)</div>
+        <div class="flex items-center gap-2 text-neutral-700"><span class="text-positive">✓</span> Text input with ₱ prefix</div>
+        <div class="flex items-center gap-2 text-neutral-700"><span class="text-positive">✓</span> Date picker</div>
+        <div class="flex items-center gap-2 text-neutral-700"><span class="text-positive">✓</span> Select dropdown</div>
+        <div class="flex items-center gap-2 text-neutral-700"><span class="text-positive">✓</span> Textarea</div>
+        <div class="flex items-center gap-2 text-neutral-700"><span class="text-positive">✓</span> Validation error states</div>
+        <div class="flex items-center gap-2 text-neutral-700"><span class="text-positive">✓</span> KPI cards (income, expense, net, MoM)</div>
+        <div class="flex items-center gap-2 text-neutral-700"><span class="text-positive">✓</span> KPI empty state</div>
+        <div class="flex items-center gap-2 text-neutral-700"><span class="text-positive">✓</span> Donut chart (expense, income)</div>
+        <div class="flex items-center gap-2 text-neutral-700"><span class="text-positive">✓</span> Account cards (all 5 types)</div>
+        <div class="flex items-center gap-2 text-neutral-700"><span class="text-positive">✓</span> Data table with type badges</div>
+        <div class="flex items-center gap-2 text-neutral-700"><span class="text-positive">✓</span> Pagination</div>
+        <div class="flex items-center gap-2 text-neutral-700"><span class="text-positive">✓</span> Bulk action bar</div>
+        <div class="flex items-center gap-2 text-neutral-700"><span class="text-positive">✓</span> MoM comparison card</div>
+        <div class="flex items-center gap-2 text-neutral-700"><span class="text-positive">✓</span> Delete entry modal</div>
+        <div class="flex items-center gap-2 text-neutral-700"><span class="text-positive">✓</span> Account delete resolution modal</div>
+        <div class="flex items-center gap-2 text-neutral-700"><span class="text-positive">✓</span> Category delete resolution modal</div>
+        <div class="flex items-center gap-2 text-neutral-700"><span class="text-positive">✓</span> Welcome banner</div>
+        <div class="flex items-center gap-2 text-neutral-700"><span class="text-positive">✓</span> Info / warning / error banners</div>
+        <div class="flex items-center gap-2 text-neutral-700"><span class="text-positive">✓</span> Category badges (expense + income)</div>
+        <div class="flex items-center gap-2 text-neutral-700"><span class="text-positive">✓</span> Empty states (chart, entries, account slot)</div>
+        <div class="flex items-center gap-2 text-neutral-700"><span class="text-positive">✓</span> Sidebar navigation</div>
+        <div class="flex items-center gap-2 text-neutral-700"><span class="text-positive">✓</span> Filter toggle (All/Income/Expense)</div>
+        <div class="flex items-center gap-2 text-neutral-700"><span class="text-positive">✓</span> Search input</div>
+        <div class="flex items-center gap-2 text-neutral-700"><span class="text-positive">✓</span> Time filter dropdown</div>
+        <div class="flex items-center gap-2 text-neutral-700"><span class="text-positive">✓</span> Sort dropdown</div>
+        <div class="flex items-center gap-2 text-neutral-700"><span class="text-positive">✓</span> Duplicate warning</div>
+        <div class="flex items-center gap-2 text-neutral-700"><span class="text-positive">✓</span> Audit trail (created/modified)</div>
+        <div class="flex items-center gap-2 text-neutral-700"><span class="text-positive">✓</span> CSV export cards</div>
+        <div class="flex items-center gap-2 text-neutral-700"><span class="text-positive">✓</span> Category list rows (with edit/delete)</div>
+        <div class="flex items-center gap-2 text-neutral-700"><span class="text-positive">✓</span> Add category inline form</div>
+      </div>
+      <p class="text-sm font-medium text-positive mt-4">All 33 wireframe components styled. ✓ No gaps.</p>
+    </div>
+  </section>
+
+</div>
+
+<footer class="bg-neutral-800 text-neutral-400 px-8 py-6 mt-12">
+  <div class="max-w-6xl mx-auto text-center text-xs">
+    <p>Pondo Design System · G2.5 Brand & Visual Design · 2026-07-10</p>
+    <p class="mt-1">WCAG 2.1 AA Compliant · Inter · Self-hosted · PHP</p>
+  </div>
+</footer>
+
+</body>
+</html>

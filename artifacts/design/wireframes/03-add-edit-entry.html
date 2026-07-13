@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Household Tracker — Add Entry</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>body { font-family: system-ui, sans-serif; }</style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+<!-- Sidebar -->
+<aside class="fixed left-0 top-0 h-screen w-64 bg-gray-900 text-gray-300 flex flex-col" aria-label="Main navigation">
+  <div class="px-6 py-5 text-lg font-semibold text-white border-b border-gray-700">Household Tracker</div>
+  <nav class="flex-1 py-4" role="navigation">
+    <a href="01-dashboard.html" class="flex items-center gap-3 px-6 py-3 hover:bg-gray-800">📊 Dashboard</a>
+    <a href="02-entries.html" class="flex items-center gap-3 px-6 py-3 bg-gray-200 text-gray-900 font-medium" aria-current="page">📋 Entries</a>
+    <a href="04-accounts.html" class="flex items-center gap-3 px-6 py-3 hover:bg-gray-800">🏦 Accounts</a>
+    <a href="07-categories.html" class="flex items-center gap-3 px-6 py-3 hover:bg-gray-800">🏷️ Categories</a>
+    <a href="#" class="flex items-center gap-3 px-6 py-3 hover:bg-gray-800">📤 Export</a>
+  </nav>
+  <div class="px-6 py-4 text-xs text-gray-500 border-t border-gray-700">v1.0 · Wireframe</div>
+</aside>
+
+<!-- Main content -->
+<main class="ml-64 min-h-screen">
+  <!-- Header -->
+  <header class="bg-white shadow-sm px-8 py-4 flex items-center gap-4" role="banner">
+    <a href="02-entries.html" class="text-gray-400 hover:text-gray-700 text-sm" aria-label="Back to entries">← Back</a>
+    <h1 class="text-xl font-semibold text-gray-800">Add Entry</h1>
+  </header>
+
+  <div class="p-8">
+    <!-- Form Card -->
+    <div class="max-w-2xl mx-auto bg-white rounded-lg shadow-sm border border-gray-200 p-8">
+      <form class="space-y-6" role="form" aria-label="Add entry form">
+        <!-- Entry Type Toggle -->
+        <fieldset>
+          <legend class="block text-sm font-medium text-gray-700 mb-2">Entry Type</legend>
+          <div class="grid grid-cols-2 gap-3" role="group">
+            <button type="button" class="px-4 py-3 rounded-md text-sm font-medium bg-gray-800 text-white border-2 border-gray-800" aria-pressed="true" id="btn-expense">↑ Expense</button>
+            <button type="button" class="px-4 py-3 rounded-md text-sm font-medium bg-gray-100 text-gray-600 border-2 border-gray-200 hover:border-gray-400" aria-pressed="false" id="btn-income">↓ Income</button>
+          </div>
+        </fieldset>
+
+        <!-- Amount -->
+        <div>
+          <label for="amount" class="block text-sm font-medium text-gray-700 mb-1.5">Amount <span class="text-red-600">*</span></label>
+          <div class="relative">
+            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">₱</span>
+            <input type="number" id="amount" name="amount" required step="0.01" min="0.01" placeholder="0.00" class="w-full pl-8 pr-4 py-2.5 border border-gray-300 rounded-md text-sm focus:border-gray-500 focus:ring-1 focus:ring-gray-500" aria-label="Amount in Philippine pesos" aria-required="true">
+          </div>
+          <!-- Validation error example (commented out by default) -->
+          <p class="hidden text-xs text-red-600 mt-1" id="amount-error">Amount must be greater than ₱0.</p>
+        </div>
+
+        <!-- Date -->
+        <div>
+          <label for="date" class="block text-sm font-medium text-gray-700 mb-1.5">Date <span class="text-red-600">*</span></label>
+          <input type="date" id="date" name="date" required value="2026-07-10" class="w-full px-4 py-2.5 border border-gray-300 rounded-md text-sm focus:border-gray-500 focus:ring-1 focus:ring-gray-500" aria-label="Entry date" aria-required="true">
+        </div>
+
+        <!-- Category (Expense categories shown by default) -->
+        <div>
+          <label for="category" class="block text-sm font-medium text-gray-700 mb-1.5">Category <span class="text-red-600">*</span></label>
+          <select id="category" name="category" required class="w-full px-4 py-2.5 border border-gray-300 rounded-md text-sm bg-white focus:border-gray-500 focus:ring-1 focus:ring-gray-500" aria-label="Entry category" aria-required="true">
+            <!-- Expense categories -->
+            <optgroup label="Expense Categories" id="expense-cats">
+              <option>Food & Dining</option>
+              <option>Transportation</option>
+              <option>Housing & Utilities</option>
+              <option>Shopping</option>
+              <option>Entertainment</option>
+              <option>Health</option>
+              <option>Education</option>
+              <option>Subscriptions</option>
+              <option>Insurance</option>
+              <option>Other</option>
+            </optgroup>
+            <!-- Income categories (hidden by default) -->
+            <optgroup label="Income Categories" id="income-cats" hidden>
+              <option>Salary</option>
+              <option>Freelance</option>
+              <option>Gift</option>
+              <option>Investment</option>
+              <option>Refund</option>
+              <option>Other Income</option>
+            </optgroup>
+          </select>
+          <p class="text-xs text-gray-400 mt-1" id="category-hint">Categories change based on entry type.</p>
+        </div>
+
+        <!-- Account -->
+        <div>
+          <label for="account" class="block text-sm font-medium text-gray-700 mb-1.5">Account <span class="text-red-600">*</span></label>
+          <select id="account" name="account" required class="w-full px-4 py-2.5 border border-gray-300 rounded-md text-sm bg-white focus:border-gray-500 focus:ring-1 focus:ring-gray-500" aria-label="Account to associate with entry" aria-required="true">
+            <option value="">Select an account...</option>
+            <option>BPI Savings (Debit)</option>
+            <option>BDO Credit Card (Credit)</option>
+            <option>Cash (Debit)</option>
+            <option>Lent to Mark (Lent)</option>
+            <option>Stock Investment (Invest)</option>
+          </select>
+          <p class="hidden text-xs text-red-600 mt-1" id="account-error">Please select an account.</p>
+        </div>
+
+        <!-- Note -->
+        <div>
+          <label for="note" class="block text-sm font-medium text-gray-700 mb-1.5">Note <span class="text-gray-400 font-normal">(optional)</span></label>
+          <textarea id="note" name="note" rows="3" placeholder="Add a note about this entry..." class="w-full px-4 py-2.5 border border-gray-300 rounded-md text-sm focus:border-gray-500 focus:ring-1 focus:ring-gray-500" aria-label="Optional note"></textarea>
+        </div>
+
+        <!-- Buttons -->
+        <div class="flex items-center justify-between pt-4 border-t border-gray-100">
+          <a href="02-entries.html" class="px-4 py-2.5 text-sm bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 border border-gray-300" role="button">Cancel</a>
+          <button type="submit" class="px-6 py-2.5 text-sm bg-gray-800 text-white rounded-md hover:bg-gray-900" role="button">Save Entry</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Edit Mode Preview (shown below for documentation) -->
+    <div class="max-w-2xl mx-auto mt-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300 p-6">
+      <p class="text-xs font-medium text-gray-500 uppercase mb-3">Edit Mode Preview ↓</p>
+      <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
+        <div class="flex items-center gap-4 mb-6">
+          <a href="02-entries.html" class="text-gray-400 hover:text-gray-700 text-sm" aria-label="Back to entries">← Back</a>
+          <h2 class="text-xl font-semibold text-gray-800">Edit Entry</h2>
+        </div>
+        <form class="space-y-6">
+          <fieldset>
+            <legend class="block text-sm font-medium text-gray-700 mb-2">Entry Type</legend>
+            <div class="grid grid-cols-2 gap-3">
+              <button type="button" class="px-4 py-3 rounded-md text-sm font-medium bg-gray-800 text-white border-2 border-gray-800" aria-pressed="true">↑ Expense</button>
+              <button type="button" class="px-4 py-3 rounded-md text-sm font-medium bg-gray-100 text-gray-600 border-2 border-gray-200" aria-pressed="false">↓ Income</button>
+            </div>
+          </fieldset>
+          <div>
+            <label for="edit-amount" class="block text-sm font-medium text-gray-700 mb-1.5">Amount <span class="text-red-600">*</span></label>
+            <div class="relative">
+              <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">₱</span>
+              <input type="number" id="edit-amount" value="850" class="w-full pl-8 pr-4 py-2.5 border border-gray-300 rounded-md text-sm">
+            </div>
+          </div>
+          <div>
+            <label for="edit-date" class="block text-sm font-medium text-gray-700 mb-1.5">Date <span class="text-red-600">*</span></label>
+            <input type="date" id="edit-date" value="2026-07-09" class="w-full px-4 py-2.5 border border-gray-300 rounded-md text-sm">
+          </div>
+          <div>
+            <label for="edit-category" class="block text-sm font-medium text-gray-700 mb-1.5">Category <span class="text-red-600">*</span></label>
+            <select id="edit-category" class="w-full px-4 py-2.5 border border-gray-300 rounded-md text-sm bg-white">
+              <option selected>Food & Dining</option>
+              <option>Transportation</option>
+              <option>Housing & Utilities</option>
+              <option>Shopping</option>
+              <option>Entertainment</option>
+              <option>Health</option>
+              <option>Other</option>
+            </select>
+          </div>
+          <div>
+            <label for="edit-account" class="block text-sm font-medium text-gray-700 mb-1.5">Account <span class="text-red-600">*</span></label>
+            <select id="edit-account" class="w-full px-4 py-2.5 border border-gray-300 rounded-md text-sm bg-white">
+              <option>BPI Savings (Debit)</option>
+              <option>BDO Credit Card (Credit)</option>
+              <option selected>Cash (Debit)</option>
+              <option>Lent to Mark (Lent)</option>
+              <option>Stock Investment (Invest)</option>
+            </select>
+          </div>
+          <div>
+            <label for="edit-note" class="block text-sm font-medium text-gray-700 mb-1.5">Note <span class="text-gray-400 font-normal">(optional)</span></label>
+            <textarea id="edit-note" rows="3" class="w-full px-4 py-2.5 border border-gray-300 rounded-md text-sm">Groceries — weekly run</textarea>
+          </div>
+          <!-- Audit Trail -->
+          <div class="text-xs text-gray-500 bg-gray-50 rounded-md p-3 border border-gray-100">
+            <p>Created: Jul 5, 2026 3:22 PM</p>
+            <p>Last modified: Jul 8, 2026 9:15 AM</p>
+          </div>
+          <div class="flex items-center justify-between pt-4 border-t border-gray-100">
+            <a href="#" class="text-sm text-red-600 hover:text-red-700 hover:underline">Delete Entry</a>
+            <button type="submit" class="px-6 py-2.5 text-sm bg-gray-800 text-white rounded-md hover:bg-gray-900">Save Changes</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Validation Error States (documentation) -->
+    <div class="max-w-2xl mx-auto mt-4 bg-gray-50 rounded-lg border border-gray-200 p-4">
+      <p class="text-xs font-medium text-gray-500 uppercase mb-2">Validation Error States:</p>
+      <div class="space-y-3">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">Amount</label>
+          <div class="relative">
+            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">₱</span>
+            <input type="number" value="0" class="w-full pl-8 pr-4 py-2.5 border-2 border-red-600 rounded-md text-sm">
+          </div>
+          <p class="text-xs text-red-600 mt-1">Amount must be greater than ₱0.</p>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">Account</label>
+          <select class="w-full px-4 py-2.5 border-2 border-red-600 rounded-md text-sm bg-white">
+            <option value="">Select an account...</option>
+          </select>
+          <p class="text-xs text-red-600 mt-1">Please select an account.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+  // Toggle entry type and swap category options
+  const btnExpense = document.getElementById('btn-expense');
+  const btnIncome = document.getElementById('btn-income');
+  const expenseCats = document.getElementById('expense-cats');
+  const incomeCats = document.getElementById('income-cats');
+
+  btnExpense.addEventListener('click', function() {
+    this.classList.add('bg-gray-800', 'text-white', 'border-gray-800');
+    this.classList.remove('bg-gray-100', 'text-gray-600', 'border-gray-200');
+    btnIncome.classList.remove('bg-gray-800', 'text-white', 'border-gray-800');
+    btnIncome.classList.add('bg-gray-100', 'text-gray-600', 'border-gray-200');
+    this.setAttribute('aria-pressed', 'true');
+    btnIncome.setAttribute('aria-pressed', 'false');
+    expenseCats.hidden = false;
+    incomeCats.hidden = true;
+  });
+
+  btnIncome.addEventListener('click', function() {
+    this.classList.add('bg-gray-800', 'text-white', 'border-gray-800');
+    this.classList.remove('bg-gray-100', 'text-gray-600', 'border-gray-200');
+    btnExpense.classList.remove('bg-gray-800', 'text-white', 'border-gray-800');
+    btnExpense.classList.add('bg-gray-100', 'text-gray-600', 'border-gray-200');
+    this.setAttribute('aria-pressed', 'true');
+    btnExpense.setAttribute('aria-pressed', 'false');
+    expenseCats.hidden = true;
+    incomeCats.hidden = false;
+  });
+</script>
+
+</body>
+</html>

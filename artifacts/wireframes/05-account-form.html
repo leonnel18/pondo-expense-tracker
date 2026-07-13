@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Household Tracker — Add Account</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>body { font-family: system-ui, sans-serif; }</style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+<!-- Sidebar -->
+<aside class="fixed left-0 top-0 h-screen w-64 bg-gray-900 text-gray-300 flex flex-col" aria-label="Main navigation">
+  <div class="px-6 py-5 text-lg font-semibold text-white border-b border-gray-700">Household Tracker</div>
+  <nav class="flex-1 py-4" role="navigation">
+    <a href="01-dashboard.html" class="flex items-center gap-3 px-6 py-3 hover:bg-gray-800">📊 Dashboard</a>
+    <a href="02-entries.html" class="flex items-center gap-3 px-6 py-3 hover:bg-gray-800">📋 Entries</a>
+    <a href="04-accounts.html" class="flex items-center gap-3 px-6 py-3 bg-gray-200 text-gray-900 font-medium" aria-current="page">🏦 Accounts</a>
+    <a href="07-categories.html" class="flex items-center gap-3 px-6 py-3 hover:bg-gray-800">🏷️ Categories</a>
+    <a href="#" class="flex items-center gap-3 px-6 py-3 hover:bg-gray-800">📤 Export</a>
+  </nav>
+  <div class="px-6 py-4 text-xs text-gray-500 border-t border-gray-700">v1.0 · Wireframe</div>
+</aside>
+
+<!-- Main content -->
+<main class="ml-64 min-h-screen">
+  <!-- Header -->
+  <header class="bg-white shadow-sm px-8 py-4 flex items-center gap-4" role="banner">
+    <a href="04-accounts.html" class="text-gray-400 hover:text-gray-700 text-sm" aria-label="Back to accounts">← Back</a>
+    <h1 class="text-xl font-semibold text-gray-800">Add Account</h1>
+  </header>
+
+  <div class="p-8">
+    <!-- Form Card -->
+    <div class="max-w-2xl mx-auto bg-white rounded-lg shadow-sm border border-gray-200 p-8">
+      <form class="space-y-6" role="form" aria-label="Add account form">
+        <!-- Account Name -->
+        <div>
+          <label for="account-name" class="block text-sm font-medium text-gray-700 mb-1.5">Account Name <span class="text-red-600">*</span></label>
+          <input type="text" id="account-name" name="account-name" required placeholder="e.g., GCash, PayMaya, BPI Checking..." class="w-full px-4 py-2.5 border border-gray-300 rounded-md text-sm focus:border-gray-500 focus:ring-1 focus:ring-gray-500" aria-label="Account name" aria-required="true">
+          <p class="hidden text-xs text-red-600 mt-1" id="name-error">Account name is required.</p>
+        </div>
+
+        <!-- Account Type Selector -->
+        <fieldset>
+          <legend class="block text-sm font-medium text-gray-700 mb-2">Account Type <span class="text-red-600">*</span></legend>
+          <div class="grid grid-cols-2 md:grid-cols-5 gap-3" role="radiogroup" aria-label="Account type">
+            <!-- Debit (selected) -->
+            <label class="cursor-pointer">
+              <input type="radio" name="account-type" value="debit" class="peer sr-only" checked aria-label="Debit account">
+              <div class="border-2 border-gray-800 bg-gray-800 text-white rounded-lg p-4 text-center peer-checked:border-gray-800 peer-checked:bg-gray-800 peer-checked:text-white">
+                <p class="text-2xl mb-1">🏦</p>
+                <p class="text-sm font-medium">Debit</p>
+                <p class="text-xs text-gray-300 mt-1">Your own money</p>
+              </div>
+            </label>
+            <!-- Credit -->
+            <label class="cursor-pointer">
+              <input type="radio" name="account-type" value="credit" class="peer sr-only" aria-label="Credit account">
+              <div class="border-2 border-gray-200 bg-white text-gray-600 rounded-lg p-4 text-center hover:border-gray-400 peer-checked:border-gray-800 peer-checked:bg-gray-800 peer-checked:text-white transition-colors">
+                <p class="text-2xl mb-1">💳</p>
+                <p class="text-sm font-medium">Credit</p>
+                <p class="text-xs text-gray-400 mt-1">Money you owe</p>
+              </div>
+            </label>
+            <!-- Lent -->
+            <label class="cursor-pointer">
+              <input type="radio" name="account-type" value="lent" class="peer sr-only" aria-label="Lent account">
+              <div class="border-2 border-gray-200 bg-white text-gray-600 rounded-lg p-4 text-center hover:border-gray-400 peer-checked:border-gray-800 peer-checked:bg-gray-800 peer-checked:text-white transition-colors">
+                <p class="text-2xl mb-1">🤝</p>
+                <p class="text-sm font-medium">Lent</p>
+                <p class="text-xs text-gray-400 mt-1">Money owed to you</p>
+              </div>
+            </label>
+            <!-- Borrowed -->
+            <label class="cursor-pointer">
+              <input type="radio" name="account-type" value="borrowed" class="peer sr-only" aria-label="Borrowed account">
+              <div class="border-2 border-gray-200 bg-white text-gray-600 rounded-lg p-4 text-center hover:border-gray-400 peer-checked:border-gray-800 peer-checked:bg-gray-800 peer-checked:text-white transition-colors">
+                <p class="text-2xl mb-1">📞</p>
+                <p class="text-sm font-medium">Borrowed</p>
+                <p class="text-xs text-gray-400 mt-1">Money you owe</p>
+              </div>
+            </label>
+            <!-- Invest -->
+            <label class="cursor-pointer">
+              <input type="radio" name="account-type" value="invest" class="peer sr-only" aria-label="Investment account">
+              <div class="border-2 border-gray-200 bg-white text-gray-600 rounded-lg p-4 text-center hover:border-gray-400 peer-checked:border-gray-800 peer-checked:bg-gray-800 peer-checked:text-white transition-colors">
+                <p class="text-2xl mb-1">📈</p>
+                <p class="text-sm font-medium">Invest</p>
+                <p class="text-xs text-gray-400 mt-1">Investments</p>
+              </div>
+            </label>
+          </div>
+        </fieldset>
+
+        <!-- Description/Note -->
+        <div>
+          <label for="description" class="block text-sm font-medium text-gray-700 mb-1.5">Description / Note <span class="text-gray-400 font-normal">(optional)</span></label>
+          <textarea id="description" name="description" rows="3" placeholder="Add a description for this account..." class="w-full px-4 py-2.5 border border-gray-300 rounded-md text-sm focus:border-gray-500 focus:ring-1 focus:ring-gray-500" aria-label="Optional account description"></textarea>
+        </div>
+
+        <!-- Duplicate Warning (shown conditionally) -->
+        <div class="hidden bg-gray-50 border border-gray-200 rounded-md p-3 flex items-start gap-2" id="dup-warning" role="alert">
+          <svg class="w-4 h-4 text-gray-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <p class="text-xs text-gray-600">An account with this name and type already exists. You can still save — this is just a reminder.</p>
+        </div>
+
+        <!-- Buttons -->
+        <div class="flex items-center justify-between pt-4 border-t border-gray-100">
+          <a href="04-accounts.html" class="px-4 py-2.5 text-sm bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 border border-gray-300" role="button">Cancel</a>
+          <button type="submit" class="px-6 py-2.5 text-sm bg-gray-800 text-white rounded-md hover:bg-gray-900" role="button">Save Account</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Edit Mode Preview -->
+    <div class="max-w-2xl mx-auto mt-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300 p-6">
+      <p class="text-xs font-medium text-gray-500 uppercase mb-3">Edit Mode Preview ↓</p>
+      <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
+        <div class="flex items-center gap-4 mb-6">
+          <a href="04-accounts.html" class="text-gray-400 hover:text-gray-700 text-sm">← Back</a>
+          <h2 class="text-xl font-semibold text-gray-800">Edit Account</h2>
+        </div>
+        <form class="space-y-6">
+          <div>
+            <label for="edit-acc-name" class="block text-sm font-medium text-gray-700 mb-1.5">Account Name <span class="text-red-600">*</span></label>
+            <input type="text" id="edit-acc-name" value="BPI Savings" class="w-full px-4 py-2.5 border border-gray-300 rounded-md text-sm">
+          </div>
+          <fieldset>
+            <legend class="block text-sm font-medium text-gray-700 mb-2">Account Type</legend>
+            <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+              <label class="cursor-pointer">
+                <input type="radio" name="edit-type" value="debit" class="peer sr-only" checked>
+                <div class="border-2 border-gray-800 bg-gray-800 text-white rounded-lg p-4 text-center">
+                  <p class="text-2xl mb-1">🏦</p>
+                  <p class="text-sm font-medium">Debit</p>
+                  <p class="text-xs text-gray-300 mt-1">Your own money</p>
+                </div>
+              </label>
+              <label class="cursor-pointer">
+                <input type="radio" name="edit-type" value="credit" class="peer sr-only">
+                <div class="border-2 border-gray-200 bg-white text-gray-600 rounded-lg p-4 text-center hover:border-gray-400 transition-colors">
+                  <p class="text-2xl mb-1">💳</p>
+                  <p class="text-sm font-medium">Credit</p>
+                  <p class="text-xs text-gray-400 mt-1">Money you owe</p>
+                </div>
+              </label>
+              <label class="cursor-pointer">
+                <input type="radio" name="edit-type" value="lent" class="peer sr-only">
+                <div class="border-2 border-gray-200 bg-white text-gray-600 rounded-lg p-4 text-center hover:border-gray-400 transition-colors">
+                  <p class="text-2xl mb-1">🤝</p>
+                  <p class="text-sm font-medium">Lent</p>
+                  <p class="text-xs text-gray-400 mt-1">Money owed to you</p>
+                </div>
+              </label>
+              <label class="cursor-pointer">
+                <input type="radio" name="edit-type" value="borrowed" class="peer sr-only">
+                <div class="border-2 border-gray-200 bg-white text-gray-600 rounded-lg p-4 text-center hover:border-gray-400 transition-colors">
+                  <p class="text-2xl mb-1">📞</p>
+                  <p class="text-sm font-medium">Borrowed</p>
+                  <p class="text-xs text-gray-400 mt-1">Money you owe</p>
+                </div>
+              </label>
+              <label class="cursor-pointer">
+                <input type="radio" name="edit-type" value="invest" class="peer sr-only">
+                <div class="border-2 border-gray-200 bg-white text-gray-600 rounded-lg p-4 text-center hover:border-gray-400 transition-colors">
+                  <p class="text-2xl mb-1">📈</p>
+                  <p class="text-sm font-medium">Invest</p>
+                  <p class="text-xs text-gray-400 mt-1">Investments</p>
+                </div>
+              </label>
+            </div>
+          </fieldset>
+          <div>
+            <label for="edit-desc" class="block text-sm font-medium text-gray-700 mb-1.5">Description / Note <span class="text-gray-400 font-normal">(optional)</span></label>
+            <textarea id="edit-desc" rows="3" class="w-full px-4 py-2.5 border border-gray-300 rounded-md text-sm">Main savings account for household expenses</textarea>
+          </div>
+          <div class="flex items-center justify-between pt-4 border-t border-gray-100">
+            <a href="#" class="text-sm text-red-600 hover:text-red-700 hover:underline">Delete Account</a>
+            <button type="submit" class="px-6 py-2.5 text-sm bg-gray-800 text-white rounded-md hover:bg-gray-900">Save Changes</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+  // Show duplicate warning when user types a name that might exist
+  const nameInput = document.getElementById('account-name');
+  const warning = document.getElementById('dup-warning');
+  const existingNames = ['BPI Savings', 'BDO Credit Card', 'Cash', 'Lent to Mark', 'Stock Investment'];
+  
+  nameInput.addEventListener('input', function() {
+    const val = this.value.trim().toLowerCase();
+    if (val && existingNames.some(n => n.toLowerCase() === val)) {
+      warning.classList.remove('hidden');
+      warning.classList.add('flex');
+    } else {
+      warning.classList.add('hidden');
+      warning.classList.remove('flex');
+    }
+  });
+</script>
+
+</body>
+</html>

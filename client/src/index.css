@@ -1,0 +1,88 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  margin: 0;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background-color: theme('colors.background');
+  color: theme('colors.text.primary');
+  min-height: 100vh;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: theme('colors.neutral.100');
+}
+
+::-webkit-scrollbar-thumb {
+  background: theme('colors.neutral.300');
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: theme('colors.neutral.400');
+}
+
+/* Smooth transitions for interactive elements */
+button, a, .card, .table-row {
+  transition: all 0.2s ease-in-out;
+}
+
+/* Card spacing improvements */
+.card {
+  margin-bottom: 1.5rem;
+}
+
+.card:last-child {
+  margin-bottom: 0;
+}
+
+/* Typography hierarchy refinement */
+h1 {
+  @apply text-3xl font-bold;
+}
+
+h2 {
+  @apply text-2xl font-bold;
+}
+
+h3 {
+  @apply text-xl font-semibold;
+}
+
+h4 {
+  @apply text-lg font-semibold;
+}
+
+/* KPI number styling */
+.kpi-value {
+  @apply text-3xl font-bold;
+}
+
+.kpi-label {
+  @apply text-sm font-medium;
+}
+
+/* Consistent border-radius usage */
+.rounded-consistent {
+  border-radius: theme('borderRadius.md');
+}
+
+/* Hover effects for buttons and cards */
+button:hover, .card:hover {
+  transform: translateY(-1px);
+}
+
+/* Focus states for accessibility */
+button:focus, a:focus, input:focus, select:focus {
+  outline: 2px solid theme('colors.brand.500');
+  outline-offset: 2px;
+}

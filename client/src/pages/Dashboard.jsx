@@ -1,0 +1,117 @@
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { getDashboard } from '../lib/api';
+import BalanceHero from '../components/dashboard/BalanceHero';
+import QuickAdd from '../components/dashboard/QuickAdd';
+import AccountSummary from '../components/dashboard/AccountSummary';
+import RecentEntries from '../components/dashboard/RecentEntries';
+import FilterPanel from '../components/dashboard/FilterPanel';
+
+const Dashboard = () => {
+  const navigate = useNavigate();
+  const [dashboardData, setDashboardData] = useState({
+    kpi: {
+      total_income: 0,
+      total_expenses: 0,
+      net_balance: 0,
+      total_balance: 0
+    },
+    accounts: [],
+    recentEntries: []
+  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [filters, setFilters] = useState({
+    from: '',
+    to: ''
+  });
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, [filters]);
+
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true);
+      const data = await getDashboard(filters.from, filters.to);
+      setDashboardData(data);
+    } catch (err) {
+      setError('Failed to fetch dashboard data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleFilterChange = (newFilters) => {
+    setFilters(newFilters);
+  };
+
+  const handleEntryAdded = () => {
+    // Refresh dashboard data after adding an entry
+    fetchDashboardData();
+  };
+
+  if (loading) return <div className="p-6">Loading dashboard...</div>;
+  if (error) return <div className="p-6 text-red-600">Error: {error}</div>;
+
+  return (
+    <div className="p-6">
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+        <p className="text-gray-600 mt-1">Track your financial health at a glance</p>
+      </div>
+
+      <FilterPanel
+        filters={filters}
+        onFilterChange={handleFilterChange}
+        accounts={[]}
+        categories={{}}
+        showTypeFilter={false}
+        showDateFilters={true}
+        showSearch={false}
+      />
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
+        <div className="lg:col-span-2 space-y-6">
+          <BalanceHero kpi={dashboardData.kpi} />
+          
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 transition-all duration-200">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-semibold text-gray-900">Recent Entries</h2>
+              <button
+                onClick={() => navigate('/entries')}
+                className="text-sm text-brand-600 hover:text-brand-700 transition-colors duration-150"
+              >
+                View all
+              </button>
+            </div>
+            <RecentEntries
+              entries={dashboardData.recentEntries}
+              onEdit={(entry) => navigate(`/entries/${entry.id}/edit`)}
+              onDelete={() => fetchDashboardData()} // Refresh after delete
+            />
+          </div>
+        </div>
+
+        <div className="space-y-6">
+          <QuickAdd onEntryAdded={handleEntryAdded} />
+          
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 transition-all duration-200">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-semibold text-gray-900">Accounts</h2>
+              <button
+                onClick={() => navigate('/accounts')}
+                className="text-sm text-brand-600 hover:text-brand-700 transition-colors duration-150"
+              >
+                View all
+              </button>
+            </div>
+            <AccountSummary accounts={dashboardData.accounts} />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Dashboard;
