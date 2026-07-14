@@ -215,10 +215,34 @@ These are open, not fixed by the migration. They're being addressed in a separat
 - `client/package.json` / `server/package.json` still read `1.0.0`. Left as-is; version bump is a separate pm pass after the open defects (§15.3) land.
 - No CHANGELOG.md exists or was created — this project logs changes in `milestone-log.md`/`PROJECT-BOOK.md`, consistent with its existing convention.
 
-### 15.6 Current status (supersedes §14.6 for "what's actually true right now")
+### 15.6 Current status (superseded by §16 below — see there for "what's actually true right now")
 
 - **Actual current phase:** v2.0 Sprint 3 (data-layer + hosting) shipped, out of the approved sequence; v1.1–v1.5 and v2.0 Sprint 2 not done.
 - **Live defects:** US-01, US-29, US-30 (open, in production Supabase code).
 - **Live security/scope gap:** no multi-user auth; app is public with a single shared passphrase.
 - **Stale docs:** `06-runbook.md` (deployment target), package.json versions (both still 1.0.0).
 - **Not established by this record:** who/what performed the migration and why the approved sequencing wasn't followed — no tracked session exists to attribute this to.
+
+---
+
+## 16. v2.0 Sprint 2 (auth) built, fixed, verified, committed — not yet live (2026-07-15)
+
+### 16.1 What's done
+
+US-01/US-29/US-30 (§15.3) are fixed and verified against live Supabase. Multi-user auth (§15.4's gap) is designed (approved), implemented, QA'd, and defect-fixed — see `artifacts/milestone-log.md`'s 2026-07-15 session entry for full detail (implementation via `dev-pondo`; QA's automated run failed from context overflow, so DARKLING reviewed manually and found 3 real defects — one critical: auth didn't actually establish a session end-to-end — all fixed and independently re-verified, including one bug the fix report itself missed).
+
+All of the above is in one local git commit (`6feaa98`). **Not pushed, not deployed.**
+
+### 16.2 Why it's not live yet
+
+1. Supabase and Vercel MCP connections both dropped mid-session (unrelated to the code) — blocks the DDL migration apply and any Vercel-side checks.
+2. Three env vars the new code requires at load-time are unverified in Vercel: `SUPABASE_JWT_SECRET` (server — missing this crashes the *entire* app, not just auth), `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` (client). None were needed before this change.
+3. The repo has a live GitHub remote with no sign of a separate manual/CLI deploy path — pushing to `main` is very likely what actually triggers a Vercel deploy here, meaning the push itself needs to wait on point 2, not just the "deploy."
+
+### 16.3 Also resolved this pass (housekeeping, not roadmap items)
+
+Stray OpenClaw scaffolding (`AGENTS.md`/`SOUL.md`/etc.) and debug artifacts left in the project root from before the per-project-clone workspace fix (`milestone-log.md`, 2026-07-14) were found, content-checked (nothing sensitive), removed, and `.gitignore`-guarded against recurrence. `server/package-lock.json` was found out of sync with `package.json` (`cookie-parser` never actually installed) — would likely have failed Vercel's build; fixed via `npm install`.
+
+### 16.4 Next steps, in order
+
+Reconnect MCP → confirm the 3 env vars in Vercel → apply the DDL migration (already dry-run verified twice) → push `main` → monitor the resulting deployment.

@@ -215,3 +215,44 @@ Two new artifacts under `docs/v2.0-sprint2-auth/`:
 ### Infrastructure change: per-project OpenClaw agent clones
 
 Eight project-scoped clones (`analyst-pondo`, `ux-pondo`, `brand-pondo`, `architect-pondo`, `dev-pondo`, `qa-pondo`, `devops-pondo`, `pm-pondo`) were created so FRIDAY's Workshop Crew can work directly against this project's real files instead of a sandboxed default workspace. Each clone keeps its own role-specific `AGENTS.md` persona (verified distinct from a generic project-level `AGENTS.md` that was incidentally already sitting in the project root from the undocumented migration above) in a dedicated `~\.openclaw\workspace-<role>-pondo\` directory, with a directory junction (`pondo\`) linking live to this project folder for real file access. Added to `friday`'s `subagents.allowAgents` so FRIDAY itself can delegate to them, not just DARKLING. Gateway restarted 2026-07-14 to apply both changes.
+
+---
+
+## Session — v2.0 Sprint 2 (auth) implementation, QA, and commit (2026-07-15)
+
+**Trigger:** Gino approved the auth requirements/design above and authorized implementation via `dev-pondo`/`qa-pondo` (OpenClaw, Ollama). Orchestrated by DARKLING.
+
+### Implementation (`dev-pondo`, `ollama/qwen3-coder:480b-cloud`)
+
+Built per the approved SAD: `public.users` schema migration (`server/db/migrations/001_add_users_and_account_user_id.sql`), rewritten `server/middleware/auth.js`, new `server/lib/supabase-auth.js`, new `server/routes/auth.js` (`/api/auth/*`), client-side `AuthProvider`/`AuthGate`/sign-in-up-reset pages, `client/src/lib/api.js` refactor. Old `/api/setup` and `/api/set-passphrase` (passphrase-specific logic) removed from `server/routes/system.js`. Did not touch the live database or deploy, per instruction.
+
+### QA — automated run failed, manual review by DARKLING found 3 real defects
+
+A first QA dispatch to `qa-pondo` (`ollama/kimi-k2.7-code:cloud`) with an open-ended "trace every FR" brief failed outright: 194 tool calls, a context-window overflow, one failed auto-compaction attempt, then a timeout after ~19 minutes — no report produced. Rather than retry the same broad scope, DARKLING reviewed the implementation directly and found:
+
+1. **Critical — auth did not actually work end-to-end.** `middleware/auth.js` read the token from an `Authorization` header; `client/src/lib/api.js` only sent `credentials: 'include'` (cookies); `routes/auth.js`'s signup/signin never set a cookie or returned a token. A user could "sign in" successfully and still 401 on the very next request. Also found while investigating: the client's `api.js` called a `/api/auth/refresh` endpoint that didn't exist yet (404).
+2. **NFR-A5 violation.** `signup` returned an explicit "email already exists" message on duplicate registration — direct disclosure, despite `signin` two functions later correctly avoiding the same issue.
+3. **Documented, not a blocker.** `signout` cannot truly revoke a JWT before its natural expiry (inherent to stateless local verification, bounded by the 1hr access-token lifetime) — flagged for a code comment, not a fix.
+
+### Fix pass (`dev-pondo`, targeted 4-item brief, not a broad re-implementation)
+
+All 3 defects fixed: cookie-parser wired in, `setAuthCookies` helper added, signup/signin now set httpOnly cookies, signout clears them, the missing `/refresh` route was added, signup's duplicate-email response is now generic. DARKLING independently re-verified by reading the actual files (not trusting the self-report a second time) and found one thing the fix report missed: `server.js` called `cookieParser()` but never imported the `cookie-parser` package — a guaranteed `ReferenceError` on server boot. Fixed directly by DARKLING (one-line import). All 4 touched files passed `node --check` afterward.
+
+### Pre-commit hygiene (DARKLING)
+
+- Found and removed stray files sitting in the project root from earlier OpenClaw sessions (before the per-project-clone workspace fix above existed): `AGENTS.md`, `SOUL.md`, `IDENTITY.md`, `TOOLS.md`, `USER.md`, `HEARTBEAT.md`, `openclaw-workspace-state.json`, plus debug artifacts `err.txt`/`files.txt`/`out.txt`. Contents checked first — nothing sensitive, just internal scaffolding/debug output that didn't belong in the app repo. Added a `.gitignore` guard against recurrence.
+- Found `server/package-lock.json` out of sync with `package.json` — `cookie-parser` was declared but never actually `npm install`ed (matches instructions given to `dev-pondo` not to run installs itself), meaning `npm ci` on Vercel would likely have failed the build. Ran `npm install` in both `client/` and `server/` to resolve properly; `jsonwebtoken` and `@supabase/supabase-js` were already correctly resolved (likely already-transitive/previously-installed).
+- Ran a real `npm run build` in `client/` — 1906 modules, built clean, no errors.
+
+### Committed, not pushed
+
+One local commit (`6feaa98`) covering both the v1.1 backfill and the v2.0 Sprint 2 auth implementation — **not pushed to `origin/main`**. The repo has a live GitHub remote (`leonnel18/pondo-expense-tracker`) with no local Vercel CLI link or manual-upload trace, strongly suggesting Vercel's GitHub integration auto-deploys on push to `main` — meaning the push itself, not a separate "deploy" step, is likely the actual trigger. Held deliberately pending two things:
+
+1. **Both the Supabase and Vercel MCP connections dropped mid-session** (session-wide auth expiry, not one connector) — blocking both the DDL migration apply and any Vercel-side verification.
+2. **Three environment variables are load-time-required by the new code and unverified in Vercel:** `SUPABASE_JWT_SECRET` (server, `server/lib/supabase-auth.js` throws at require-time if missing — would crash the *entire* app, not just auth, since this is required from `server.js`'s import chain), `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` (client, `client/src/lib/supabase.js` throws at module-load if either is missing). None of these were needed by the app before this change. Missing any one would break production on the next deploy, whenever it happens.
+
+### Status snapshot
+
+- **Current phase:** Auth implementation complete, defect-fixed, independently verified, committed locally. DDL migration NOT applied to production. Not pushed to GitHub. Not deployed.
+- **Blockers:** MCP reconnection (Supabase + Vercel) needed before either the migration apply or the push/deploy can proceed safely.
+- **Next steps, in order:** reconnect MCP → verify the 3 env vars are set in Vercel → apply migration → push to `main` (likely triggers deploy) → monitor the deployment.
