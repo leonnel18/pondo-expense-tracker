@@ -1,26 +1,19 @@
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcrypt');
+const supabase = require('../db/supabase');
 const {
   getSetting,
   setSetting,
   getAccounts,
   getCategories,
-  createAccount
+  createAccount,
+  getEntryCount,
+  getCategoryById,
+  getAllSettings,
+  createCategory
 } = require('../db/queries');
 const { validate, setupSchema, setPassphraseSchema } = require('../middleware/validate');
-const db = require('../db/schema');
-
-// Promisified helpers for one-off raw queries in this file
-const dbGet = (sql, params = []) => new Promise((resolve, reject) => {
-  db.get(sql, params, (err, row) => err ? reject(err) : resolve(row));
-});
-const dbAll = (sql, params = []) => new Promise((resolve, reject) => {
-  db.all(sql, params, (err, rows) => err ? reject(err) : resolve(rows));
-});
-const dbRun = (sql, params = []) => new Promise((resolve, reject) => {
-  db.run(sql, params, function (err) { err ? reject(err) : resolve(this); });
-});
 
 // FR-12 / FR-13 default categories, seeded once on first launch
 const DEFAULT_CATEGORIES = [
@@ -54,8 +47,8 @@ router.get('/status', async (req, res, next) => {
       const accounts = await getAccounts();
       hasAccounts = accounts.length > 0;
 
-      const entryCount = await dbGet('SELECT COUNT(*) as count FROM entries');
-      hasEntries = entryCount.count > 0;
+      const entryCount = await getEntryCount();
+      hasEntries = entryCount > 0;
     }
 
     res.json({
@@ -91,9 +84,13 @@ router.post('/setup', validate(setupSchema), async (req, res, next) => {
 
     // Create default "Cash" account if it doesn't exist
     let cashAccount = null;
-    const existingCashAccount = await dbGet(
-      "SELECT * FROM accounts WHERE name = 'Cash' AND type = 'debit'"
-    );
+    const { data: existingCashAccountData, error: cashAccountError } = await supabase
+      .from('accounts')
+      .select('*')
+      .eq('name', 'Cash')
+      .eq('type', 'debit')
+      .single();
+    const existingCashAccount = existingCashAccountData || null;
 
     if (!existingCashAccount) {
       cashAccount = await createAccount({
@@ -106,14 +103,18 @@ router.post('/setup', validate(setupSchema), async (req, res, next) => {
     }
 
     // Seed default categories if none exist yet
-    const existingCount = await dbGet('SELECT COUNT(*) as count FROM categories');
+    const existingCategories = await getCategories();
+    const existingCount = { count: existingCategories.length };
     let categoriesCreated = 0;
     if (existingCount.count === 0) {
       for (const cat of DEFAULT_CATEGORIES) {
-        await dbRun(
-          'INSERT INTO categories (name, type, color, is_default, sort_order) VALUES (?, ?, ?, 1, ?)',
-          [cat.name, cat.type, cat.color, cat.sort_order]
-        );
+        await createCategory({
+          name: cat.name,
+          type: cat.type,
+          color: cat.color,
+          is_default: true,
+          sort_order: cat.sort_order
+        });
         categoriesCreated++;
       }
     }
@@ -175,15 +176,15 @@ router.post('/set-passphrase', validate(setPassphraseSchema), async (req, res, n
 // GET /api/settings
 router.get('/settings', async (req, res, next) => {
   try {
-    const settings = await dbAll(`
-      SELECT key, value
-      FROM settings
-      WHERE key IN ('last_used_account_id', 'first_launch_completed')
-    `);
-
+    const allSettings = await getAllSettings();
     const result = {};
-    settings.forEach(setting => {
-      result[setting.key] = setting.value;
+    
+    // Filter to only include the specific settings we want
+    const keysToInclude = ['last_used_account_id', 'first_launch_completed'];
+    keysToInclude.forEach(key => {
+      if (allSettings[key] !== undefined) {
+        result[key] = allSettings[key];
+      }
     });
 
     res.json(result);
@@ -201,15 +202,15 @@ router.put('/settings', async (req, res, next) => {
       await setSetting('last_used_account_id', last_used_account_id.toString());
     }
 
-    const settings = await dbAll(`
-      SELECT key, value
-      FROM settings
-      WHERE key IN ('last_used_account_id', 'first_launch_completed')
-    `);
-
+    const allSettings = await getAllSettings();
     const result = {};
-    settings.forEach(setting => {
-      result[setting.key] = setting.value;
+    
+    // Filter to only include the specific settings we want
+    const keysToInclude = ['last_used_account_id', 'first_launch_completed'];
+    keysToInclude.forEach(key => {
+      if (allSettings[key] !== undefined) {
+        result[key] = allSettings[key];
+      }
     });
 
     res.json(result);

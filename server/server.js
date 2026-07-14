@@ -3,9 +3,6 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 
-// Initialize database
-require('./db/schema');
-
 // Import middleware
 const authMiddleware = require('./middleware/auth');
 const errorHandler = require('./middleware/error-handler');
@@ -26,9 +23,6 @@ const PORT = process.env.PORT || 3001;
 app.use(cors());
 app.use(express.json());
 
-// Serve static files from client build
-app.use(express.static(path.join(__dirname, 'dist')));
-
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
@@ -45,19 +39,15 @@ app.use('/api/dashboard', dashboardRouter);
 app.use('/api/export', exportRouter);
 app.use('/api', systemRouter);
 
-// Serve client app for all other routes
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'dist/index.html'));
-});
-
 // Error handling middleware (must be last)
 app.use(errorHandler);
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log(`API available at http://localhost:${PORT}/api`);
-  console.log(`Frontend available at http://localhost:${PORT}`);
-});
+// Start server conditionally (only for local development)
+if (process.env.NODE_ENV !== 'production') {
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+    console.log(`API available at http://localhost:${PORT}/api`);
+  });
+}
 
 module.exports = app;

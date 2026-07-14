@@ -1,773 +1,1128 @@
-const db = require('./schema');
+const supabase = require('./client');
 
 // Account queries
-const getAccounts = (sort = 'name', order = 'ASC') => {
-  return new Promise((resolve, reject) => {
-    let orderBy;
-    switch(sort) {
-      case 'balance':
-        // For balance sorting, we need to calculate it
-        orderBy = 'a.name'; // We'll sort in memory for now
-        break;
-      case 'type':
-        orderBy = 'a.type';
-        break;
-      default:
-        orderBy = 'a.name';
+const getAccounts = async (sort = 'name', order = 'ASC') => {
+  let query = supabase
+    .from('accounts')
+    .select(`
+      id, name, type, description, emoji, created_at, updated_at,
+      entries(count)
+    `);
+
+  // Handle sorting
+  let orderBy;
+  switch(sort) {
+    case 'balance':
+      // For balance sorting, we need to calculate it - will sort in memory
+      orderBy = 'name';
+      break;
+    case 'type':
+      orderBy = 'type';
+      break;
+    default:
+      orderBy = 'name';
+  }
+
+  query = query.order(orderBy, { ascending: order === 'ASC' });
+
+  const { data, error } = await query;
+
+  if (error) {
+    throw error;
+  }
+
+  // If sorting by balance, we need to calculate and re-sort
+  if (sort === 'balance') {
+    const accountsWithBalances = await Promise.all(data.map(async (account) => {
+      const balance = await getAccountBalance(account.id);
+      return { ...account, balance, entry_count: account.entries.length };
+    }));
+
+    accountsWithBalances.sort((a, b) => {
+      return order === 'ASC' ? a.balance - b.balance : b.balance - a.balance;
+    });
+
+    return accountsWithBalances;
+  }
+
+  // Add entry_count from the joined data
+  return data.map(account => ({
+    ...account,
+    entry_count: account.entries.length
+  }));
+};
+
+const getAccountById = async (id) => {
+  const { data, error } = await supabase
+    .from('accounts')
+    .select(`
+      id, name, type, description, emoji, created_at, updated_at,
+      entries(count)
+    `)
+    .eq('id', id)
+    .single();
+
+  if (error) {
+    if (error.code === 'PGRST116') {
+      // No rows returned
+      return null;
     }
+    throw error;
+  }
 
-    const sql = `
-      SELECT a.id, a.name, a.type, a.description, a.emoji, a.created_at, a.updated_at,
-        COUNT(e.id) as entry_count
-      FROM accounts a
-      LEFT JOIN entries e ON e.account_id = a.id
-      GROUP BY a.id
-      ORDER BY ${orderBy} ${order}`;
-
-    db.all(sql, (err, rows) => {
-      if (err) {
-        reject(err);
-      } else {
-        // If sorting by balance, we need to calculate and re-sort
-        if (sort === 'balance') {
-          const accountsWithBalances = rows.map(account => {
-            return new Promise((resolveBalance, rejectBalance) => {
-              const balanceSql = `
-                SELECT 
-                  COALESCE(SUM(CASE WHEN e.type = 'income' THEN e.amount ELSE 0 END), 0) as total_income,
-                  COALESCE(SUM(CASE WHEN e.type = 'expense' THEN e.amount ELSE 0 END), 0) as total_expense
-                FROM entries e WHERE e.account_id = ?`;
-              
-              db.get(balanceSql, [account.id], (balanceErr, balanceRow) => {
-                if (balanceErr) {
-                  rejectBalance(balanceErr);
-                } else {
-                  let balance = 0;
-                  switch(account.type) {
-                    case 'debit':
-                    case 'invest':
-                      balance = balanceRow.total_income - balanceRow.total_expense;
-                      break;
-                    case 'credit':
-                    case 'lent':
-                      balance = balanceRow.total_expense - balanceRow.total_income;
-                      break;
-                    case 'borrowed':
-                      balance = balanceRow.total_income - balanceRow.total_expense;
-                      break;
-                  }
-                  resolveBalance({...account, balance});
-                }
-              });
-            });
-          });
-          
-          Promise.all(accountsWithBalances)
-            .then(accounts => {
-              accounts.sort((a, b) => {
-                return order === 'ASC' ? a.balance - b.balance : b.balance - a.balance;
-              });
-              resolve(accounts);
-            })
-            .catch(reject);
-        } else {
-          resolve(rows);
-        }
-      }
-    });
-  });
+  return {
+    ...data,
+    entry_count: data.entries.length
+  };
 };
 
-const getAccountById = (id) => {
-  return new Promise((resolve, reject) => {
-    const sql = `SELECT id, name, type, description, emoji, created_at, updated_at FROM accounts WHERE id = ?`;
-    db.get(sql, [id], (err, row) => {
-      if (err) {
-        reject(err);
-      } else {
-        resolve(row);
-      }
-    });
-  });
+const getAccountBalance = async (id) => {
+  const { data, error } = await supabase
+    .from('accounts')
+    .select(`
+      type,
+      entries(type, amount)
+    `)
+    .eq('id', id)
+    .single();
+
+  if (error) {
+    if (error.code === 'PGRST116') {
+      // No rows returned
+      return 0;
+    }
+    throw error;
+  }
+
+  // Calculate totals
+  const totalIncome = data.entries
+    .filter(e => e.type === 'income')
+    .reduce((sum, entry) => sum + entry.amount, 0);
+
+  const totalExpense = data.entries
+    .filter(e => e.type === 'expense')
+    .reduce((sum, entry) => sum + entry.amount, 0);
+
+  // Calculate balance based on account type
+  let balance = 0;
+  switch(data.type) {
+    case 'debit':
+    case 'invest':
+      balance = totalIncome - totalExpense;
+      break;
+    case 'credit':
+    case 'lent':
+      balance = totalExpense - totalIncome;
+      break;
+    case 'borrowed':
+      balance = totalIncome - totalExpense;
+      break;
+  }
+
+  return balance;
 };
 
-const getAccountBalance = (id) => {
-  return new Promise((resolve, reject) => {
-    const sql = `
-      SELECT 
-        a.type as account_type,
-        COALESCE(SUM(CASE WHEN e.type = 'income' THEN e.amount ELSE 0 END), 0) as total_income,
-        COALESCE(SUM(CASE WHEN e.type = 'expense' THEN e.amount ELSE 0 END), 0) as total_expense
-      FROM accounts a
-      LEFT JOIN entries e ON a.id = e.account_id
-      WHERE a.id = ?
-      GROUP BY a.type`;
-    
-    db.get(sql, [id], (err, row) => {
-      if (err) {
-        reject(err);
-      } else if (!row) {
-        resolve(0);
-      } else {
-        let balance = 0;
-        switch(row.account_type) {
-          case 'debit':
-          case 'invest':
-            balance = row.total_income - row.total_expense;
-            break;
-          case 'credit':
-          case 'lent':
-            balance = row.total_expense - row.total_income;
-            break;
-          case 'borrowed':
-            balance = row.total_income - row.total_expense;
-            break;
-        }
-        resolve(balance);
-      }
-    });
-  });
+const createAccount = async (account) => {
+  const { name, type, description, emoji } = account;
+  
+  const { data, error } = await supabase
+    .from('accounts')
+    .insert({
+      name,
+      type,
+      description: description || null,
+      emoji: emoji || null
+    })
+    .select()
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
 };
 
-const createAccount = (account) => {
-  return new Promise((resolve, reject) => {
-    const { name, type, description, emoji } = account;
-    const sql = `INSERT INTO accounts (name, type, description, emoji) VALUES (?, ?, ?, ?)`;
-    db.run(sql, [name, type, description, emoji || null], function(err) {
-      if (err) {
-        reject(err);
-      } else {
-        resolve({ id: this.lastID, ...account });
-      }
-    });
-  });
+const updateAccount = async (id, account) => {
+  const { name, type, description, emoji } = account;
+  
+  const { data, error } = await supabase
+    .from('accounts')
+    .update({
+      name,
+      type,
+      description: description || null,
+      emoji: emoji || null,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
 };
 
-const updateAccount = (id, account) => {
-  return new Promise((resolve, reject) => {
-    const { name, type, description, emoji } = account;
-    const sql = `UPDATE accounts SET name = ?, type = ?, description = ?, emoji = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`;
-    db.run(sql, [name, type, description, emoji || null, id], function(err) {
-      if (err) {
-        reject(err);
-      } else {
-        resolve({ id, ...account });
-      }
-    });
-  });
+const deleteAccount = async (id) => {
+  const { data, error } = await supabase
+    .from('accounts')
+    .delete()
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return { id: data.id };
 };
 
-const deleteAccount = (id) => {
-  return new Promise((resolve, reject) => {
-    const sql = `DELETE FROM accounts WHERE id = ?`;
-    db.run(sql, [id], function(err) {
-      if (err) {
-        reject(err);
-      } else {
-        resolve({ id });
-      }
-    });
-  });
+const getAccountEntryCount = async (id) => {
+  const { count, error } = await supabase
+    .from('entries')
+    .select('*', { count: 'exact', head: true })
+    .eq('account_id', id);
+
+  if (error) {
+    throw error;
+  }
+
+  return count;
 };
 
-const getAccountEntryCount = (id) => {
-  return new Promise((resolve, reject) => {
-    db.get(`SELECT COUNT(*) as count FROM entries WHERE account_id = ?`, [id], (err, row) => {
-      if (err) reject(err); else resolve(row.count);
-    });
-  });
+const reassignAccountEntries = async (fromId, toId) => {
+  const { data, error } = await supabase
+    .from('entries')
+    .update({ 
+      account_id: toId,
+      updated_at: new Date().toISOString()
+    })
+    .eq('account_id', fromId);
+
+  if (error) {
+    throw error;
+  }
+
+  return { reassigned: data.length };
 };
 
-const reassignAccountEntries = (fromId, toId) => {
-  return new Promise((resolve, reject) => {
-    db.run(`UPDATE entries SET account_id = ?, updated_at = CURRENT_TIMESTAMP WHERE account_id = ?`, [toId, fromId], function(err) {
-      if (err) reject(err); else resolve({ reassigned: this.changes });
-    });
-  });
-};
+const deleteEntriesByAccount = async (id) => {
+  const { data, error } = await supabase
+    .from('entries')
+    .delete()
+    .eq('account_id', id);
 
-const deleteEntriesByAccount = (id) => {
-  return new Promise((resolve, reject) => {
-    db.run(`DELETE FROM entries WHERE account_id = ?`, [id], function(err) {
-      if (err) reject(err); else resolve({ deleted: this.changes });
-    });
-  });
+  if (error) {
+    throw error;
+  }
+
+  return { deleted: data.length };
 };
 
 // Category queries
-const getCategories = (type = null) => {
-  return new Promise((resolve, reject) => {
-    let sql = `
-      SELECT c.id, c.name, c.type, c.color, c.icon, c.is_default, c.sort_order, c.created_at, c.updated_at,
-        COUNT(e.id) as entry_count
-      FROM categories c
-      LEFT JOIN entries e ON e.category_id = c.id`;
-    const params = [];
+const getCategories = async (type = null) => {
+  let query = supabase
+    .from('categories')
+    .select(`
+      id, name, type, color, icon, is_default, sort_order, created_at, updated_at,
+      entries(count)
+    `);
 
-    if (type) {
-      sql += ` WHERE c.type = ?`;
-      params.push(type);
+  if (type) {
+    query = query.eq('type', type);
+  }
+
+  query = query.order('sort_order', { ascending: true });
+
+  const { data, error } = await query;
+
+  if (error) {
+    throw error;
+  }
+
+  // Add entry_count from the joined data
+  return data.map(category => ({
+    ...category,
+    entry_count: category.entries.length
+  }));
+};
+
+const getCategoryById = async (id) => {
+  const { data, error } = await supabase
+    .from('categories')
+    .select(`
+      id, name, type, color, icon, is_default, sort_order, created_at, updated_at,
+      entries(count)
+    `)
+    .eq('id', id)
+    .single();
+
+  if (error) {
+    if (error.code === 'PGRST116') {
+      // No rows returned
+      return null;
     }
+    throw error;
+  }
 
-    sql += ` GROUP BY c.id ORDER BY c.sort_order ASC, c.name ASC`;
-
-    db.all(sql, params, (err, rows) => {
-      if (err) {
-        reject(err);
-      } else {
-        resolve(rows);
-      }
-    });
-  });
+  return {
+    ...data,
+    entry_count: data.entries.length
+  };
 };
 
-const getCategoryById = (id) => {
-  return new Promise((resolve, reject) => {
-    const sql = `SELECT id, name, type, color, icon, is_default, sort_order, created_at, updated_at FROM categories WHERE id = ?`;
-    db.get(sql, [id], (err, row) => {
-      if (err) {
-        reject(err);
-      } else {
-        resolve(row);
-      }
-    });
-  });
+const createCategory = async (category) => {
+  const { name, type, color, icon, is_default, sort_order } = category;
+  
+  const { data, error } = await supabase
+    .from('categories')
+    .insert({
+      name,
+      type,
+      color: color || null,
+      icon: icon || null,
+      is_default: is_default || false,
+      sort_order: sort_order || 0
+    })
+    .select()
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
 };
 
-const createCategory = (category) => {
-  return new Promise((resolve, reject) => {
-    const { name, type, color, icon } = category;
-    const sql = `INSERT INTO categories (name, type, color, icon) VALUES (?, ?, ?, ?)`;
-    db.run(sql, [name, type, color, icon || null], function(err) {
-      if (err) {
-        reject(err);
-      } else {
-        resolve({ id: this.lastID, ...category });
-      }
-    });
-  });
+const updateCategory = async (id, category) => {
+  const { name, type, color, icon, is_default, sort_order } = category;
+  
+  const { data, error } = await supabase
+    .from('categories')
+    .update({
+      name,
+      type,
+      color: color || null,
+      icon: icon || null,
+      is_default: is_default || false,
+      sort_order: sort_order || 0,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
 };
 
-const updateCategory = (id, category) => {
-  return new Promise((resolve, reject) => {
-    const { name, color, icon } = category;
-    const sql = `UPDATE categories SET name = ?, color = ?, icon = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`;
-    db.run(sql, [name, color, icon || null, id], function(err) {
-      if (err) {
-        reject(err);
-      } else {
-        resolve({ id, ...category });
-      }
-    });
-  });
+const deleteCategory = async (id) => {
+  const { data, error } = await supabase
+    .from('categories')
+    .delete()
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return { id: data.id };
 };
 
-const deleteCategory = (id) => {
-  return new Promise((resolve, reject) => {
-    const sql = `DELETE FROM categories WHERE id = ?`;
-    db.run(sql, [id], function(err) {
-      if (err) {
-        reject(err);
-      } else {
-        resolve({ id });
-      }
-    });
-  });
+const getCategoryEntryCount = async (id) => {
+  const { count, error } = await supabase
+    .from('entries')
+    .select('*', { count: 'exact', head: true })
+    .eq('category_id', id);
+
+  if (error) {
+    throw error;
+  }
+
+  return count;
 };
 
-const getCategoryEntryCount = (id) => {
-  return new Promise((resolve, reject) => {
-    db.get(`SELECT COUNT(*) as count FROM entries WHERE category_id = ?`, [id], (err, row) => {
-      if (err) reject(err); else resolve(row.count);
-    });
-  });
+const reassignCategoryEntries = async (fromId, toId) => {
+  const { data, error } = await supabase
+    .from('entries')
+    .update({ 
+      category_id: toId,
+      updated_at: new Date().toISOString()
+    })
+    .eq('category_id', fromId);
+
+  if (error) {
+    throw error;
+  }
+
+  return { reassigned: data.length };
 };
 
-const getFallbackCategory = (type) => {
-  return new Promise((resolve, reject) => {
-    const fallbackName = type === 'income' ? 'Other Income' : 'Other';
-    db.get(`SELECT id, name, type FROM categories WHERE type = ? AND name = ?`, [type, fallbackName], (err, row) => {
-      if (err) reject(err); else resolve(row);
-    });
-  });
-};
+// New function for categories
+const getFallbackCategory = async (type) => {
+  const { data, error } = await supabase
+    .from('categories')
+    .select('id, name, type, color, icon, is_default, sort_order, created_at, updated_at')
+    .eq('type', type)
+    .eq('is_default', true)
+    .single();
 
-const reassignCategoryEntries = (fromId, toId) => {
-  return new Promise((resolve, reject) => {
-    db.run(`UPDATE entries SET category_id = ?, updated_at = CURRENT_TIMESTAMP WHERE category_id = ?`, [toId, fromId], function(err) {
-      if (err) reject(err); else resolve({ reassigned: this.changes });
-    });
-  });
+  if (error) {
+    if (error.code === 'PGRST116') {
+      // No rows returned
+      return null;
+    }
+    throw error;
+  }
+
+  return data;
 };
 
 // Entry queries
-const getEntries = (filters = {}) => {
-  return new Promise((resolve, reject) => {
-    let sql = `
-      SELECT
-        e.id, e.type, e.amount, e.note, e.date, e.created_at, e.updated_at,
-        e.account_id, e.category_id,
-        c.name as category_name, c.color as category_color, c.icon as category_emoji,
-        a.name as account_name, a.type as account_type, a.emoji as account_emoji
-      FROM entries e
-      JOIN categories c ON e.category_id = c.id
-      JOIN accounts a ON e.account_id = a.id
-    `;
-    
-    const params = [];
-    const whereConditions = [];
-    
-    if (filters.type) {
-      whereConditions.push('e.type = ?');
-      params.push(filters.type);
-    }
-    
-    if (filters.category_id) {
-      whereConditions.push('e.category_id = ?');
-      params.push(filters.category_id);
-    }
-    
-    if (filters.account_id) {
-      whereConditions.push('e.account_id = ?');
-      params.push(filters.account_id);
-    }
-    
-    if (filters.from) {
-      whereConditions.push('e.date >= ?');
-      params.push(filters.from);
-    }
-    
-    if (filters.to) {
-      whereConditions.push('e.date <= ?');
-      params.push(filters.to);
-    }
-    
-    if (filters.search) {
-      whereConditions.push('(e.note LIKE ?)');
-      params.push(`%${filters.search}%`);
-    }
-    
-    if (whereConditions.length > 0) {
-      sql += ' WHERE ' + whereConditions.join(' AND ');
-    }
-    
-    sql += ' ORDER BY e.date DESC, e.created_at DESC';
-    
-    if (filters.limit || filters.offset !== undefined) {
-      sql += ' LIMIT ? OFFSET ?';
-      params.push(filters.limit || 10);
-      params.push(filters.offset || 0);
-    }
-    
-    db.all(sql, params, (err, rows) => {
-      if (err) {
-        reject(err);
-      } else {
-        resolve(rows);
-      }
-    });
-  });
+const getEntries = async (filters = {}) => {
+  let query = supabase
+    .from('entries')
+    .select(`
+      id, type, amount, note, date, created_at, updated_at,
+      account:accounts(id, name, type, emoji),
+      category:categories(id, name, type, color, icon)
+    `);
+
+  // Apply filters
+  if (filters.type) {
+    query = query.eq('type', filters.type);
+  }
+
+  if (filters.account_id) {
+    query = query.eq('account_id', filters.account_id);
+  }
+
+  if (filters.category_id) {
+    query = query.eq('category_id', filters.category_id);
+  }
+
+  if (filters.from) {
+    query = query.gte('date', filters.from);
+  }
+
+  if (filters.to) {
+    query = query.lte('date', filters.to);
+  }
+
+  // Handle search
+  if (filters.search) {
+    // Escape % and _ characters to prevent wildcard matching
+    const escapedSearch = filters.search.replace(/[%_]/g, '\$\u0026');
+    query = query.ilike('note', `%${escapedSearch}%`);
+  }
+
+  // Handle sorting
+  const orderBy = filters.orderBy || 'date';
+  const orderDir = filters.order || 'DESC';
+  query = query.order(orderBy, { ascending: orderDir === 'ASC' });
+
+  // Handle pagination
+  if (filters.limit !== undefined || filters.offset !== undefined) {
+    const offset = filters.offset || 0;
+    const limit = filters.limit || 10;
+    query = query.range(offset, offset + limit - 1);
+  } else if (filters.limit) {
+    query = query.limit(filters.limit);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    throw error;
+  }
+
+  // Flatten the response to match the original SQLite API
+  return data.map(entry => ({
+    id: entry.id,
+    type: entry.type,
+    amount: entry.amount,
+    note: entry.note,
+    date: entry.date,
+    created_at: entry.created_at,
+    updated_at: entry.updated_at,
+    account_id: entry.account.id,
+    category_id: entry.category.id,
+    account_name: entry.account.name,
+    account_type: entry.account.type,
+    account_emoji: entry.account.emoji,
+    category_name: entry.category.name,
+    category_type: entry.category.type,
+    category_color: entry.category.color,
+    category_icon: entry.category.icon
+  }));
 };
 
-const getEntryById = (id) => {
-  return new Promise((resolve, reject) => {
-    const sql = `
-      SELECT
-        e.id, e.type, e.amount, e.note, e.date, e.created_at, e.updated_at,
-        e.account_id, e.category_id,
-        c.name as category_name, c.color as category_color, c.icon as category_emoji,
-        a.name as account_name, a.type as account_type, a.emoji as account_emoji
-      FROM entries e
-      JOIN categories c ON e.category_id = c.id
-      JOIN accounts a ON e.account_id = a.id
-      WHERE e.id = ?`;
-    
-    db.get(sql, [id], (err, row) => {
-      if (err) {
-        reject(err);
-      } else {
-        resolve(row);
-      }
-    });
-  });
-};
+const getEntryById = async (id) => {
+  const { data, error } = await supabase
+    .from('entries')
+    .select(`
+      id, type, amount, note, date, created_at, updated_at,
+      account_id,
+      category_id,
+      account:accounts(id, name, type, emoji),
+      category:categories(id, name, type, color, icon)
+    `)
+    .eq('id', id)
+    .single();
 
-const createEntry = (entry) => {
-  return new Promise((resolve, reject) => {
-    const { type, amount, account_id, category_id, note, date } = entry;
-    const sql = `INSERT INTO entries (type, amount, account_id, category_id, note, date) VALUES (?, ?, ?, ?, ?, ?)`;
-    db.run(sql, [type, amount, account_id, category_id, note, date], function(err) {
-      if (err) {
-        reject(err);
-      } else {
-        resolve({ id: this.lastID, ...entry });
-      }
-    });
-  });
-};
-
-const updateEntry = (id, entry) => {
-  return new Promise((resolve, reject) => {
-    const { type, amount, account_id, category_id, note, date } = entry;
-    const sql = `UPDATE entries SET type = ?, amount = ?, account_id = ?, category_id = ?, note = ?, date = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`;
-    db.run(sql, [type, amount, account_id, category_id, note, date, id], function(err) {
-      if (err) {
-        reject(err);
-      } else {
-        resolve({ id, ...entry });
-      }
-    });
-  });
-};
-
-const deleteEntry = (id) => {
-  return new Promise((resolve, reject) => {
-    const sql = `DELETE FROM entries WHERE id = ?`;
-    db.run(sql, [id], function(err) {
-      if (err) {
-        reject(err);
-      } else {
-        resolve({ id });
-      }
-    });
-  });
-};
-
-const bulkDeleteEntries = (ids) => {
-  return new Promise((resolve, reject) => {
-    if (!Array.isArray(ids) || ids.length === 0) {
-      return resolve({ deleted: 0 });
+  if (error) {
+    if (error.code === 'PGRST116') {
+      // No rows returned
+      return null;
     }
-    const placeholders = ids.map(() => '?').join(',');
-    const sql = `DELETE FROM entries WHERE id IN (${placeholders})`;
-    db.run(sql, ids, function(err) {
-      if (err) {
-        reject(err);
-      } else {
-        resolve({ deleted: this.changes });
-      }
-    });
-  });
+    throw error;
+  }
+
+  // Flatten the response to match the original SQLite API
+  return {
+    id: data.id,
+    type: data.type,
+    amount: data.amount,
+    note: data.note,
+    date: data.date,
+    created_at: data.created_at,
+    updated_at: data.updated_at,
+    account_id: data.account_id,
+    category_id: data.category_id,
+    account_name: data.account.name,
+    account_type: data.account.type,
+    account_emoji: data.account.emoji,
+    category_name: data.category.name,
+    category_type: data.category.type,
+    category_color: data.category.color,
+    category_icon: data.category.icon
+  };
 };
 
-const getEntriesForExport = (from = null, to = null) => {
-  return new Promise((resolve, reject) => {
-    let sql = `
-      SELECT
-        e.id, e.type, e.amount, e.date,
-        c.name as category, a.name as account,
-        e.note, e.created_at, e.updated_at
-      FROM entries e
-      JOIN categories c ON e.category_id = c.id
-      JOIN accounts a ON e.account_id = a.id
-    `;
-    const params = [];
-    const whereConditions = [];
-    if (from) {
-      whereConditions.push('e.date >= ?');
-      params.push(from);
-    }
-    if (to) {
-      whereConditions.push('e.date <= ?');
-      params.push(to);
-    }
-    if (whereConditions.length > 0) {
-      sql += ' WHERE ' + whereConditions.join(' AND ');
-    }
-    sql += ' ORDER BY e.date DESC, e.created_at DESC';
+const createEntry = async (entry) => {
+  const { type, amount, account_id, category_id, note, date } = entry;
+  
+  const { data, error } = await supabase
+    .from('entries')
+    .insert({
+      type,
+      amount,
+      account_id,
+      category_id,
+      note: note || null,
+      date
+    })
+    .select(`
+      id, type, amount, note, date, created_at, updated_at,
+      account:accounts(id, name, type, emoji),
+      category:categories(id, name, type, color, icon)
+    `)
+    .single();
 
-    db.all(sql, params, (err, rows) => {
-      if (err) reject(err); else resolve(rows);
-    });
-  });
+  if (error) {
+    throw error;
+  }
+
+  // Flatten the response to match the original SQLite API
+  return {
+    id: data.id,
+    type: data.type,
+    amount: data.amount,
+    note: data.note,
+    date: data.date,
+    created_at: data.created_at,
+    updated_at: data.updated_at,
+    account_id: data.account.id,
+    category_id: data.category.id,
+    account_name: data.account.name,
+    account_type: data.account.type,
+    account_emoji: data.account.emoji,
+    category_name: data.category.name,
+    category_type: data.category.type,
+    category_color: data.category.color,
+    category_icon: data.category.icon
+  };
 };
 
-const getAccountsForExport = () => {
-  return new Promise((resolve, reject) => {
-    const sql = `SELECT id, name, type, description FROM accounts ORDER BY name ASC`;
-    db.all(sql, [], (err, rows) => {
-      if (err) reject(err); else resolve(rows);
-    });
-  });
+const updateEntry = async (id, entry) => {
+  const { type, amount, account_id, category_id, note, date } = entry;
+  
+  const { data, error } = await supabase
+    .from('entries')
+    .update({
+      type,
+      amount,
+      account_id,
+      category_id,
+      note: note || null,
+      date,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', id)
+    .select(`
+      id, type, amount, note, date, created_at, updated_at,
+      account:accounts(id, name, type, emoji),
+      category:categories(id, name, type, color, icon)
+    `)
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  // Flatten the response to match the original SQLite API
+  return {
+    id: data.id,
+    type: data.type,
+    amount: data.amount,
+    note: data.note,
+    date: data.date,
+    created_at: data.created_at,
+    updated_at: data.updated_at,
+    account_id: data.account.id,
+    category_id: data.category.id,
+    account_name: data.account.name,
+    account_type: data.account.type,
+    account_emoji: data.account.emoji,
+    category_name: data.category.name,
+    category_type: data.category.type,
+    category_color: data.category.color,
+    category_icon: data.category.icon
+  };
 };
 
-// Dashboard queries
-const getExpenseBreakdown = (from = null, to = null) => {
-  return new Promise((resolve, reject) => {
-    let sql = `
-      SELECT c.id as category_id, c.name as category_name, c.color as category_color, c.icon as category_icon,
-        COALESCE(SUM(e.amount), 0) as total
-      FROM entries e
-      JOIN categories c ON e.category_id = c.id
-      WHERE e.type = 'expense'
-    `;
-    const params = [];
-    if (from) {
-      sql += ' AND e.date >= ?';
-      params.push(from);
-    }
-    if (to) {
-      sql += ' AND e.date <= ?';
-      params.push(to);
-    }
-    sql += ' GROUP BY c.id, c.name, c.color, c.icon ORDER BY total DESC';
+const deleteEntry = async (id) => {
+  const { data, error } = await supabase
+    .from('entries')
+    .delete()
+    .eq('id', id)
+    .select()
+    .single();
 
-    db.all(sql, params, (err, rows) => {
-      if (err) reject(err); else resolve(rows);
-    });
-  });
+  if (error) {
+    throw error;
+  }
+
+  return { id: data.id };
 };
 
-const getIncomeBreakdown = (from = null, to = null) => {
-  return new Promise((resolve, reject) => {
-    let sql = `
-      SELECT c.id as category_id, c.name as category_name, c.color as category_color, c.icon as category_icon,
-        COALESCE(SUM(e.amount), 0) as total
-      FROM entries e
-      JOIN categories c ON e.category_id = c.id
-      WHERE e.type = 'income'
-    `;
-    const params = [];
-    if (from) {
-      sql += ' AND e.date >= ?';
-      params.push(from);
-    }
-    if (to) {
-      sql += ' AND e.date <= ?';
-      params.push(to);
-    }
-    sql += ' GROUP BY c.id, c.name, c.color, c.icon ORDER BY total DESC';
+// New function for entries
+const bulkDeleteEntries = async (ids) => {
+  const { data, error } = await supabase
+    .from('entries')
+    .delete()
+    .in('id', ids);
 
-    db.all(sql, params, (err, rows) => {
-      if (err) reject(err); else resolve(rows);
-    });
-  });
+  if (error) {
+    throw error;
+  }
+
+  return { deleted: data.length };
 };
 
-const getDashboardMoM = (from = null, to = null) => {
-  return new Promise((resolve, reject) => {
-    const toDate = to ? new Date(to) : new Date();
-    const fromDate = from ? new Date(from) : new Date(toDate.getFullYear(), toDate.getMonth(), 1);
-    const periodMs = toDate.getTime() - fromDate.getTime();
-    const prevTo = new Date(fromDate.getTime() - 24 * 60 * 60 * 1000);
-    const prevFrom = new Date(prevTo.getTime() - periodMs);
-    const fmt = (d) => d.toISOString().split('T')[0];
+// Export queries
+const getEntriesForExport = async (from, to) => {
+  let query = supabase
+    .from('entries')
+    .select(`
+      id, type, amount, note, date, created_at, updated_at,
+      account:accounts(name),
+      category:categories(name)
+    `);
 
-    const periodSql = `
-      SELECT
-        COALESCE(SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END), 0) as total_income,
-        COALESCE(SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END), 0) as total_expenses
-      FROM entries WHERE date >= ? AND date <= ?`;
+  if (from) {
+    query = query.gte('date', from);
+  }
 
-    db.get(periodSql, [fmt(fromDate), fmt(toDate)], (err, current) => {
-      if (err) return reject(err);
-      db.get(periodSql, [fmt(prevFrom), fmt(prevTo)], (err2, previous) => {
-        if (err2) return reject(err2);
+  if (to) {
+    query = query.lte('date', to);
+  }
 
-        const pctChange = (curr, prev) => {
-          if (!prev) return curr > 0 ? 100 : 0;
-          return ((curr - prev) / prev) * 100;
-        };
+  query = query.order('date', { ascending: true });
 
-        resolve({
-          current: { total_income: current.total_income, total_expenses: current.total_expenses },
-          previous: { total_income: previous.total_income, total_expenses: previous.total_expenses },
-          income_change_pct: pctChange(current.total_income, previous.total_income),
-          expense_change_pct: pctChange(current.total_expenses, previous.total_expenses)
-        });
+  const { data, error } = await query;
+
+  if (error) {
+    throw error;
+  }
+
+  // Flatten the response to match the original SQLite API
+  return data.map(entry => ({
+    id: entry.id,
+    type: entry.type,
+    amount: entry.amount,
+    note: entry.note,
+    date: entry.date,
+    created_at: entry.created_at,
+    updated_at: entry.updated_at,
+    account_name: entry.account.name,
+    category_name: entry.category.name
+  }));
+};
+
+const getAccountsForExport = async () => {
+  const { data, error } = await supabase
+    .from('accounts')
+    .select('id, name, type, description, emoji, created_at, updated_at')
+    .order('name', { ascending: true });
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
+};
+
+// Dashboard queries (renamed functions)
+const getDashboardKPIs = async (from, to) => {
+  // First get all entries for income/expense calculations
+  let entriesQuery = supabase
+    .from('entries')
+    .select('type, amount');
+
+  if (from) {
+    entriesQuery = entriesQuery.gte('date', from);
+  }
+
+  if (to) {
+    entriesQuery = entriesQuery.lte('date', to);
+  }
+
+  const { data: entriesData, error: entriesError } = await entriesQuery;
+
+  if (entriesError) {
+    throw entriesError;
+  }
+
+  // Calculate totals
+  const totalIncome = entriesData
+    .filter(entry => entry.type === 'income')
+    .reduce((sum, entry) => sum + entry.amount, 0);
+
+  const totalExpense = entriesData
+    .filter(entry => entry.type === 'expense')
+    .reduce((sum, entry) => sum + entry.amount, 0);
+
+  const net = totalIncome - totalExpense;
+
+  // Now get all accounts and their entries for balance calculation
+  let accountsQuery = supabase
+    .from('accounts')
+    .select(`
+      id, type,
+      entries(type, amount)
+    `);
+
+  const { data: accountsData, error: accountsError } = await accountsQuery;
+
+  if (accountsError) {
+    throw accountsError;
+  }
+
+  // Calculate total balance across all accounts
+  let totalBalance = 0;
+  accountsData.forEach(account => {
+    // Filter entries by date if specified
+    let accountEntries = account.entries;
+    if (from || to) {
+      accountEntries = account.entries.filter(entry => {
+        const entryDate = new Date(entry.date);
+        const fromDate = from ? new Date(from) : null;
+        const toDate = to ? new Date(to) : null;
+        
+        return (!fromDate || entryDate >= fromDate) && (!toDate || entryDate <= toDate);
       });
-    });
+    }
+    
+    // Calculate account balance
+    const totalIncome = accountEntries
+      .filter(e => e.type === 'income')
+      .reduce((sum, entry) => sum + entry.amount, 0);
+
+    const totalExpense = accountEntries
+      .filter(e => e.type === 'expense')
+      .reduce((sum, entry) => sum + entry.amount, 0);
+
+    // Calculate balance based on account type
+    let accountBalance = 0;
+    switch(account.type) {
+      case 'debit':
+      case 'invest':
+        accountBalance = totalIncome - totalExpense;
+        break;
+      case 'credit':
+      case 'lent':
+        accountBalance = totalExpense - totalIncome;
+        break;
+      case 'borrowed':
+        accountBalance = totalIncome - totalExpense;
+        break;
+    }
+    
+    totalBalance += accountBalance;
   });
+
+  return {
+    total_income: totalIncome,
+    total_expense: totalExpense,
+    net,
+    total_balance: totalBalance
+  };
 };
 
-const getDashboardKPIs = (from = null, to = null) => {
-  return new Promise((resolve, reject) => {
-    let sql = `
-      SELECT 
-        COALESCE(SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END), 0) as total_income,
-        COALESCE(SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END), 0) as total_expenses
-      FROM entries
-    `;
-    
-    const params = [];
-    const whereConditions = [];
-    
-    if (from) {
-      whereConditions.push('date >= ?');
-      params.push(from);
+const getDashboardMoM = async (from, to) => {
+  let query = supabase
+    .from('entries')
+    .select('date, type, amount');
+
+  if (from) {
+    query = query.gte('date', from);
+  }
+
+  if (to) {
+    query = query.lte('date', to);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    throw error;
+  }
+
+  // Group by month and calculate totals
+  const monthlyData = {};
+
+  data.forEach(entry => {
+    // Extract year-month from date
+    const date = new Date(entry.date);
+    const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+
+    if (!monthlyData[monthKey]) {
+      monthlyData[monthKey] = {
+        month: monthKey,
+        total_income: 0,
+        total_expense: 0
+      };
     }
-    
-    if (to) {
-      whereConditions.push('date <= ?');
-      params.push(to);
+
+    if (entry.type === 'income') {
+      monthlyData[monthKey].total_income += entry.amount;
+    } else {
+      monthlyData[monthKey].total_expense += entry.amount;
     }
-    
-    if (whereConditions.length > 0) {
-      sql += ' WHERE ' + whereConditions.join(' AND ');
-    }
-    
-    db.get(sql, params, (err, row) => {
-      if (err) {
-        reject(err);
-      } else {
-        const net_balance = row.total_income - row.total_expenses;
-        
-        // Calculate total balance across all accounts
-        const balanceSql = `
-          SELECT 
-            a.id, a.type,
-            COALESCE(SUM(CASE WHEN e.type = 'income' THEN e.amount ELSE 0 END), 0) as total_income,
-            COALESCE(SUM(CASE WHEN e.type = 'expense' THEN e.amount ELSE 0 END), 0) as total_expense
-          FROM accounts a
-          LEFT JOIN entries e ON a.id = e.account_id
-          GROUP BY a.id, a.type`;
-        
-        db.all(balanceSql, [], (balanceErr, balanceRows) => {
-          if (balanceErr) {
-            reject(balanceErr);
-          } else {
-            let total_balance = 0;
-            balanceRows.forEach(account => {
-              switch(account.type) {
-                case 'debit':
-                case 'invest':
-                  total_balance += (account.total_income - account.total_expense);
-                  break;
-                case 'credit':
-                case 'lent':
-                  total_balance += (account.total_expense - account.total_income);
-                  break;
-                case 'borrowed':
-                  total_balance += (account.total_income - account.total_expense);
-                  break;
-              }
-            });
-            
-            resolve({
-              total_income: row.total_income,
-              total_expenses: row.total_expenses,
-              net_balance,
-              total_balance
-            });
-          }
-        });
-      }
-    });
   });
+
+  return Object.values(monthlyData).sort((a, b) => a.month.localeCompare(b.month));
 };
 
-const getDashboardAccounts = () => {
-  return new Promise((resolve, reject) => {
-    const sql = `
-      SELECT 
-        a.id, a.name, a.type, a.emoji,
-        COALESCE(SUM(CASE WHEN e.type = 'income' THEN e.amount ELSE 0 END), 0) as total_income,
-        COALESCE(SUM(CASE WHEN e.type = 'expense' THEN e.amount ELSE 0 END), 0) as total_expense
-      FROM accounts a
-      LEFT JOIN entries e ON a.id = e.account_id
-      GROUP BY a.id, a.name, a.type, a.emoji`;
-    
-    db.all(sql, [], (err, rows) => {
-      if (err) {
-        reject(err);
-      } else {
-        const accountsWithBalances = rows.map(account => {
-          let balance = 0;
-          switch(account.type) {
-            case 'debit':
-            case 'invest':
-              balance = account.total_income - account.total_expense;
-              break;
-            case 'credit':
-            case 'lent':
-              balance = account.total_expense - account.total_income;
-              break;
-            case 'borrowed':
-              balance = account.total_income - account.total_expense;
-              break;
-          }
-          return {...account, balance};
-        });
-        
-        resolve(accountsWithBalances);
-      }
-    });
+const getExpenseBreakdown = async (from, to) => {
+  let query = supabase
+    .from('entries')
+    .select(`
+      category_id,
+      categories(name, type, color, icon),
+      type,
+      amount
+    `)
+    .eq('type', 'expense');
+
+  if (from) {
+    query = query.gte('date', from);
+  }
+
+  if (to) {
+    query = query.lte('date', to);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    throw error;
+  }
+
+  // Group by category and calculate totals
+  const categoryMap = {};
+
+  data.forEach(entry => {
+    const categoryId = entry.category_id;
+    if (!categoryMap[categoryId]) {
+      categoryMap[categoryId] = {
+        id: categoryId,
+        name: entry.categories.name,
+        type: entry.categories.type,
+        color: entry.categories.color,
+        icon: entry.categories.icon,
+        total_amount: 0
+      };
+    }
+
+    categoryMap[categoryId].total_amount += entry.amount;
   });
+
+  return Object.values(categoryMap);
 };
 
-const getRecentEntries = (from = null, to = null, limit = 5) => {
-  return new Promise((resolve, reject) => {
-    let sql = `
-      SELECT 
-        e.id, e.type, e.amount, e.note, e.date, e.created_at,
-        c.name as category_name, c.color as category_color, c.icon as category_emoji,
-        a.name as account_name, a.type as account_type, a.emoji as account_emoji
-      FROM entries e
-      JOIN categories c ON e.category_id = c.id
-      JOIN accounts a ON e.account_id = a.id
-    `;
-    
-    const params = [];
-    const whereConditions = [];
-    
-    if (from) {
-      whereConditions.push('e.date >= ?');
-      params.push(from);
+const getIncomeBreakdown = async (from, to) => {
+  let query = supabase
+    .from('entries')
+    .select(`
+      category_id,
+      categories(name, type, color, icon),
+      type,
+      amount
+    `)
+    .eq('type', 'income');
+
+  if (from) {
+    query = query.gte('date', from);
+  }
+
+  if (to) {
+    query = query.lte('date', to);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    throw error;
+  }
+
+  // Group by category and calculate totals
+  const categoryMap = {};
+
+  data.forEach(entry => {
+    const categoryId = entry.category_id;
+    if (!categoryMap[categoryId]) {
+      categoryMap[categoryId] = {
+        id: categoryId,
+        name: entry.categories.name,
+        type: entry.categories.type,
+        color: entry.categories.color,
+        icon: entry.categories.icon,
+        total_amount: 0
+      };
     }
-    
-    if (to) {
-      whereConditions.push('e.date <= ?');
-      params.push(to);
-    }
-    
-    if (whereConditions.length > 0) {
-      sql += ' WHERE ' + whereConditions.join(' AND ');
-    }
-    
-    sql += ' ORDER BY e.date DESC, e.created_at DESC LIMIT ?';
-    params.push(limit);
-    
-    db.all(sql, params, (err, rows) => {
-      if (err) {
-        reject(err);
-      } else {
-        resolve(rows);
-      }
-    });
+
+    categoryMap[categoryId].total_amount += entry.amount;
   });
+
+  return Object.values(categoryMap);
+};
+
+const getDashboardAccounts = async (from, to) => {
+  let query = supabase
+    .from('entries')
+    .select(`
+      account_id,
+      accounts(name, type),
+      type,
+      amount
+    `);
+
+  if (from) {
+    query = query.gte('date', from);
+  }
+
+  if (to) {
+    query = query.lte('date', to);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    throw error;
+  }
+
+  // Group by account and calculate balances
+  const accountMap = {};
+
+  data.forEach(entry => {
+    const accountId = entry.account_id;
+    if (!accountMap[accountId]) {
+      accountMap[accountId] = {
+        id: accountId,
+        name: entry.accounts.name,
+        type: entry.accounts.type,
+        total_income: 0,
+        total_expense: 0
+      };
+    }
+
+    if (entry.type === 'income') {
+      accountMap[accountId].total_income += entry.amount;
+    } else {
+      accountMap[accountId].total_expense += entry.amount;
+    }
+  });
+
+  // Calculate balances based on account types
+  const accounts = Object.values(accountMap).map(account => {
+    let balance = 0;
+    switch(account.type) {
+      case 'debit':
+      case 'invest':
+        balance = account.total_income - account.total_expense;
+        break;
+      case 'credit':
+      case 'lent':
+        balance = account.total_expense - account.total_income;
+        break;
+      case 'borrowed':
+        balance = account.total_income - account.total_expense;
+        break;
+    }
+
+    return {
+      ...account,
+      balance
+    };
+  });
+
+  return accounts;
+};
+
+const getRecentEntries = async (from, to, limit = 10) => {
+  let query = supabase
+    .from('entries')
+    .select(`
+      id, type, amount, note, date, created_at, updated_at,
+      account:accounts(id, name, type, emoji),
+      category:categories(id, name, type, color, icon)
+    `);
+
+  if (from) {
+    query = query.gte('date', from);
+  }
+
+  if (to) {
+    query = query.lte('date', to);
+  }
+
+  query = query.order('date', { ascending: false }).limit(limit);
+
+  const { data, error } = await query;
+
+  if (error) {
+    throw error;
+  }
+
+  // Flatten the response to match the original SQLite API
+  return data.map(entry => ({
+    id: entry.id,
+    type: entry.type,
+    amount: entry.amount,
+    note: entry.note,
+    date: entry.date,
+    created_at: entry.created_at,
+    updated_at: entry.updated_at,
+    account_id: entry.account.id,
+    category_id: entry.category.id,
+    account_name: entry.account.name,
+    account_type: entry.account.type,
+    account_emoji: entry.account.emoji,
+    category_name: entry.category.name,
+    category_type: entry.category.type,
+    category_color: entry.category.color,
+    category_icon: entry.category.icon
+  }));
 };
 
 // Settings queries
-const getSetting = (key) => {
-  return new Promise((resolve, reject) => {
-    db.get(`SELECT value FROM settings WHERE key = ?`, [key], (err, row) => {
-      if (err) {
-        reject(err);
-      } else {
-        resolve(row ? row.value : undefined);
-      }
-    });
-  });
+const getSetting = async (key) => {
+  const { data, error } = await supabase
+    .from('settings')
+    .select('value')
+    .eq('key', key)
+    .single();
+
+  if (error) {
+    if (error.code === 'PGRST116') {
+      // No rows returned
+      return null;
+    }
+    throw error;
+  }
+
+  return data.value;
 };
 
-const setSetting = (key, value) => {
-  return new Promise((resolve, reject) => {
-    db.run(
-      `INSERT INTO settings (key, value) VALUES (?, ?)
-       ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
-      [key, value],
-      (err) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve({ key, value });
-        }
-      }
-    );
-  });
+const setSetting = async (key, value) => {
+  const { data, error } = await supabase
+    .from('settings')
+    .upsert({ key, value })
+    .select()
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
 };
 
-// Export all functions
+const getAllSettings = async () => {
+  const { data, error } = await supabase
+    .from('settings')
+    .select('key, value');
+
+  if (error) {
+    throw error;
+  }
+
+  // Convert to key-value object
+  const settings = {};
+  data.forEach(setting => {
+    settings[setting.key] = setting.value;
+  });
+
+  return settings;
+};
+
+// New function for settings
+const getEntryCount = async (filters = {}) => {
+  let query = supabase
+    .from('entries')
+    .select('*', { count: 'exact', head: true });
+
+  // Apply filters
+  if (filters.type) {
+    query = query.eq('type', filters.type);
+  }
+
+  if (filters.account_id) {
+    query = query.eq('account_id', filters.account_id);
+  }
+
+  if (filters.category_id) {
+    query = query.eq('category_id', filters.category_id);
+  }
+
+  if (filters.from) {
+    query = query.gte('date', filters.from);
+  }
+
+  if (filters.to) {
+    query = query.lte('date', filters.to);
+  }
+
+  const { count, error } = await query;
+
+  if (error) {
+    throw error;
+  }
+
+  return count;
+};
+
 module.exports = {
   // Account queries
   getAccounts,
@@ -787,8 +1142,8 @@ module.exports = {
   updateCategory,
   deleteCategory,
   getCategoryEntryCount,
-  getFallbackCategory,
   reassignCategoryEntries,
+  getFallbackCategory,
 
   // Entry queries
   getEntries,
@@ -810,5 +1165,7 @@ module.exports = {
 
   // Settings queries
   getSetting,
-  setSetting
+  setSetting,
+  getAllSettings,
+  getEntryCount
 };

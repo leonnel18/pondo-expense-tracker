@@ -8,22 +8,17 @@ const {
   updateEntry,
   deleteEntry,
   bulkDeleteEntries,
-  setSetting
+  setSetting,
+  getCategoryById,
+  getAccountById
 } = require('../db/queries');
 const { validate, createEntrySchema, updateEntrySchema, bulkDeleteEntriesSchema } = require('../middleware/validate');
-const db = require('../db/schema');
-
 // Local YYYY-MM-DD string, avoids the UTC-vs-local mismatch from Date parsing
 const getTodayDateString = () => {
   const now = new Date();
   const pad = (n) => String(n).padStart(2, '0');
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 };
-
-// Promisified helper for one-off raw lookups in this file
-const dbGet = (sql, params = []) => new Promise((resolve, reject) => {
-  db.get(sql, params, (err, row) => err ? reject(err) : resolve(row));
-});
 
 // GET /api/entries
 router.get('/', validate(z.object({
@@ -100,9 +95,7 @@ router.post('/', validate(createEntrySchema), async (req, res, next) => {
     const categoryId = req.body.category_id;
     const entryType = req.body.type;
 
-    const category = await dbGet(
-      'SELECT type FROM categories WHERE id = ?', [categoryId]
-    );
+    const category = await getCategoryById(categoryId);
 
     if (!category) {
       return res.status(400).json({
@@ -130,9 +123,7 @@ router.post('/', validate(createEntrySchema), async (req, res, next) => {
     
     // Validate that the account exists
     const accountId = req.body.account_id;
-    const account = await dbGet(
-      'SELECT id FROM accounts WHERE id = ?', [accountId]
-    );
+    const account = await getAccountById(accountId);
 
     if (!account) {
       return res.status(400).json({
@@ -196,9 +187,7 @@ router.put('/:id', validate(updateEntrySchema), async (req, res, next) => {
     // If category_id is being updated, validate it matches the entry type
     if (req.body.category_id && req.body.category_id !== existingEntry.category_id) {
       const entryType = req.body.type || existingEntry.type;
-      const category = await dbGet(
-        'SELECT type FROM categories WHERE id = ?', [req.body.category_id]
-      );
+      const category = await getCategoryById(req.body.category_id);
 
       if (!category) {
         return res.status(400).json({
@@ -227,9 +216,7 @@ router.put('/:id', validate(updateEntrySchema), async (req, res, next) => {
     
     // If account_id is being updated, validate the account exists
     if (req.body.account_id && req.body.account_id !== existingEntry.account_id) {
-      const account = await dbGet(
-        'SELECT id FROM accounts WHERE id = ?', [req.body.account_id]
-      );
+      const account = await getAccountById(req.body.account_id);
 
       if (!account) {
         return res.status(400).json({
