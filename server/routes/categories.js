@@ -35,18 +35,18 @@ const updateCategorySchema = z.object({
 });
 
 // Get all categories
-router.get('/', async (req, res) => {
+router.get('/', async (req, res, next) => {
   try {
     const { type } = req.query;
     const categories = await getCategories(type);
     res.json(categories);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    next(error);
   }
 });
 
 // Get category by ID
-router.get('/:id', async (req, res) => {
+router.get('/:id', async (req, res, next) => {
   try {
     const category = await getCategoryById(req.params.id);
     if (!category) {
@@ -54,23 +54,23 @@ router.get('/:id', async (req, res) => {
     }
     res.json(category);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    next(error);
   }
 });
 
 // Create category
-router.post('/', validate(createCategorySchema), async (req, res) => {
+router.post('/', validate(createCategorySchema), async (req, res, next) => {
   try {
     const { name, type, color, icon } = req.body;
     const category = await createCategory({ name, type, color, icon });
     res.status(201).json(category);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    next(error);
   }
 });
 
 // Update category
-router.put('/:id', validate(updateCategorySchema), async (req, res) => {
+router.put('/:id', validate(updateCategorySchema), async (req, res, next) => {
   try {
     const existingCategory = await getCategoryById(req.params.id);
     if (!existingCategory) {
@@ -83,12 +83,12 @@ router.put('/:id', validate(updateCategorySchema), async (req, res) => {
     });
     res.json(category);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    next(error);
   }
 });
 
 // Delete category
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', async (req, res, next) => {
   try {
     const id = req.params.id;
     const existingCategory = await getCategoryById(id);
@@ -122,7 +122,7 @@ router.delete('/:id', async (req, res) => {
     await deleteCategory(id);
     res.status(204).send();
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    next(error);
   }
 });
 

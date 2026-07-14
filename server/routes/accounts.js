@@ -14,18 +14,18 @@ const {
 const { validate, deleteAccountSchema } = require('../middleware/validate');
 
 // Get all accounts
-router.get('/', async (req, res) => {
+router.get('/', async (req, res, next) => {
   try {
     const { sort, order } = req.query;
     const accounts = await getAccounts(sort, order);
     res.json(accounts);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    next(error);
   }
 });
 
 // Get account by ID
-router.get('/:id', async (req, res) => {
+router.get('/:id', async (req, res, next) => {
   try {
     const account = await getAccountById(req.params.id);
     if (!account) {
@@ -33,7 +33,7 @@ router.get('/:id', async (req, res) => {
     }
     res.json(account);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    next(error);
   }
 });
 
@@ -47,13 +47,13 @@ const createAccountSchema = z.object({
   }),
 });
 
-router.post('/', validate(createAccountSchema), async (req, res) => {
+router.post('/', validate(createAccountSchema), async (req, res, next) => {
   try {
     const { name, type, description, emoji } = req.body;
     const account = await createAccount({ name, type, description, emoji });
     res.status(201).json(account);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    next(error);
   }
 });
 
@@ -70,7 +70,7 @@ const updateAccountSchema = z.object({
   }),
 });
 
-router.put('/:id', validate(updateAccountSchema), async (req, res) => {
+router.put('/:id', validate(updateAccountSchema), async (req, res, next) => {
   try {
     const existingAccount = await getAccountById(req.params.id);
     if (!existingAccount) {
@@ -84,12 +84,12 @@ router.put('/:id', validate(updateAccountSchema), async (req, res) => {
     });
     res.json(account);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    next(error);
   }
 });
 
 // Delete account
-router.delete('/:id', validate(deleteAccountSchema), async (req, res) => {
+router.delete('/:id', validate(deleteAccountSchema), async (req, res, next) => {
   try {
     const id = req.params.id;
     const existingAccount = await getAccountById(id);
@@ -131,7 +131,7 @@ router.delete('/:id', validate(deleteAccountSchema), async (req, res) => {
     await deleteAccount(id);
     res.status(204).send();
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    next(error);
   }
 });
 

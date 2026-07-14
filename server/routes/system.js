@@ -1,6 +1,5 @@
 const express = require('express');
 const router = express.Router();
-const bcrypt = require('bcrypt');
 const supabase = require('../db/supabase');
 const {
   getSetting,
@@ -13,7 +12,6 @@ const {
   getAllSettings,
   createCategory
 } = require('../db/queries');
-const { validate, setupSchema, setPassphraseSchema } = require('../middleware/validate');
 
 // FR-12 / FR-13 default categories, seeded once on first launch
 const DEFAULT_CATEGORIES = [
@@ -39,6 +37,13 @@ const DEFAULT_CATEGORIES = [
 router.get('/status', async (req, res, next) => {
   try {
     const firstLaunchCompleted = (await getSetting('first_launch_completed')) === '1';
+    
+    // Check if any users exist (for re-onboarding flow)
+    const { count: userCount, error: userCountError } = await supabase
+      .from('users')
+      .select('*', { count: 'exact', head: true });
+    
+    const hasUsers = userCount > 0;
 
     let hasAccounts = false;
     let hasEntries = false;
@@ -53,121 +58,10 @@ router.get('/status', async (req, res, next) => {
 
     res.json({
       first_launch: !firstLaunchCompleted,
+      has_users: hasUsers,
       has_accounts: hasAccounts,
       has_entries: hasEntries
     });
-  } catch (error) {
-    next(error);
-  }
-});
-
-// POST /api/system/setup
-router.post('/setup', validate(setupSchema), async (req, res, next) => {
-  try {
-    // Check if setup already completed
-    const firstLaunchCompleted = (await getSetting('first_launch_completed')) === '1';
-    if (firstLaunchCompleted) {
-      return res.status(400).json({
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: 'Setup already completed',
-        },
-      });
-    }
-
-    // Set passphrase if provided
-    if (req.body.passphrase) {
-      const saltRounds = 12;
-      const hash = bcrypt.hashSync(req.body.passphrase, saltRounds);
-      await setSetting('passphrase_hash', hash);
-    }
-
-    // Create default "Cash" account if it doesn't exist
-    let cashAccount = null;
-    const { data: existingCashAccountData, error: cashAccountError } = await supabase
-      .from('accounts')
-      .select('*')
-      .eq('name', 'Cash')
-      .eq('type', 'debit')
-      .single();
-    const existingCashAccount = existingCashAccountData || null;
-
-    if (!existingCashAccount) {
-      cashAccount = await createAccount({
-        name: 'Cash',
-        type: 'debit',
-        description: 'Default cash account'
-      });
-    } else {
-      cashAccount = existingCashAccount;
-    }
-
-    // Seed default categories if none exist yet
-    const existingCategories = await getCategories();
-    const existingCount = { count: existingCategories.length };
-    let categoriesCreated = 0;
-    if (existingCount.count === 0) {
-      for (const cat of DEFAULT_CATEGORIES) {
-        await createCategory({
-          name: cat.name,
-          type: cat.type,
-          color: cat.color,
-          is_default: true,
-          sort_order: cat.sort_order
-        });
-        categoriesCreated++;
-      }
-    }
-
-    // Mark first launch as completed
-    await setSetting('first_launch_completed', '1');
-
-    res.json({
-      first_launch_completed: true,
-      cash_account: cashAccount,
-      categories_created: categoriesCreated
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
-// POST /api/system/set-passphrase
-router.post('/set-passphrase', validate(setPassphraseSchema), async (req, res, next) => {
-  try {
-    const { current_passphrase, new_passphrase } = req.body;
-
-    // Check if a passphrase is already set
-    const passphraseHash = await getSetting('passphrase_hash');
-
-    // If a passphrase is set, verify current passphrase
-    if (passphraseHash) {
-      if (!current_passphrase) {
-        return res.status(400).json({
-          error: {
-            code: 'VALIDATION_ERROR',
-            message: 'Current passphrase is required',
-          },
-        });
-      }
-
-      const isValid = bcrypt.compareSync(current_passphrase, passphraseHash);
-      if (!isValid) {
-        return res.status(401).json({
-          error: {
-            code: 'UNAUTHORIZED',
-            message: 'Current passphrase is incorrect',
-          },
-        });
-      }
-    }
-
-    // Hash and set new passphrase
-    const saltRounds = 12;
-    const hash = bcrypt.hashSync(new_passphrase, saltRounds);
-    await setSetting('passphrase_hash', hash);
-
-    res.json({ updated: true });
   } catch (error) {
     next(error);
   }

@@ -35,3 +35,14 @@ Thumbs.db
 
 # Temp / scratch
 tmp/
+
+# OpenClaw agent scaffolding (should never live in the app repo — these
+# belong in each agent's own workspace, not the project directory)
+/AGENTS.md
+/SOUL.md
+/IDENTITY.md
+/TOOLS.md
+/USER.md
+/HEARTBEAT.md
+/BOOTSTRAP.md
+/openclaw-workspace-state.json

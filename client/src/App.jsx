@@ -1,5 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
+import { AuthProvider } from './contexts/AuthContext';
+import { AuthGate } from './components/AuthGate';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import Entries from './pages/Entries';
@@ -10,6 +12,9 @@ import AddEntry from './pages/AddEntry';
 import EditEntry from './pages/EditEntry';
 import AddAccount from './pages/AddAccount';
 import EditAccount from './pages/EditAccount';
+import SignIn from './pages/SignIn';
+import SignUp from './pages/SignUp';
+import ResetPassword from './pages/ResetPassword';
 
 const NotFound = () => (
   <div className="p-12 text-center">
@@ -23,22 +28,32 @@ const NotFound = () => (
 
 function App() {
   return (
-    <Router>
-      <Routes>
-        <Route path="/" element={<Layout />}>
-          <Route index element={<Dashboard />} />
-          <Route path="entries" element={<Entries />} />
-          <Route path="entries/add" element={<AddEntry />} />
-          <Route path="entries/:id/edit" element={<EditEntry />} />
-          <Route path="accounts" element={<Accounts />} />
-          <Route path="accounts/add" element={<AddAccount />} />
-          <Route path="accounts/:id/edit" element={<EditAccount />} />
-          <Route path="categories" element={<Categories />} />
-          <Route path="export" element={<Export />} />
-          <Route path="*" element={<NotFound />} />
-        </Route>
-      </Routes>
-    </Router>
+    <AuthProvider>
+      <Router>
+        <Routes>
+          {/* Public routes — no auth required */}
+          <Route path="/signin" element={<SignIn />} />
+          <Route path="/signup" element={<SignUp />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
+
+          {/* Protected routes — wrapped in AuthGate */}
+          <Route path="/" element={
+            <AuthGate><Layout /></AuthGate>
+          }>
+            <Route index element={<Dashboard />} />
+            <Route path="entries" element={<Entries />} />
+            <Route path="entries/add" element={<AddEntry />} />
+            <Route path="entries/:id/edit" element={<EditEntry />} />
+            <Route path="accounts" element={<Accounts />} />
+            <Route path="accounts/add" element={<AddAccount />} />
+            <Route path="accounts/:id/edit" element={<EditAccount />} />
+            <Route path="categories" element={<Categories />} />
+            <Route path="export" element={<Export />} />
+            <Route path="*" element={<NotFound />} />
+          </Route>
+        </Routes>
+      </Router>
+    </AuthProvider>
   );
 }
 

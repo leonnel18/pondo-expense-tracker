@@ -50,19 +50,6 @@ const bulkDeleteEntriesSchema = z.object({
   }),
 });
 
-const setupSchema = z.object({
-  body: z.object({
-    passphrase: z.string().min(4).optional(),
-  }),
-});
-
-const setPassphraseSchema = z.object({
-  body: z.object({
-    current_passphrase: z.string().optional(),
-    new_passphrase: z.string().min(4),
-  }),
-});
-
 const deleteAccountSchema = z.object({
   body: z.object({
     resolution: z.enum(['reassign', 'cascade']).optional(),
@@ -78,7 +65,5 @@ module.exports = {
   createEntrySchema,
   updateEntrySchema,
   bulkDeleteEntriesSchema,
-  setupSchema,
-  setPassphraseSchema,
   deleteAccountSchema
 };

@@ -1,9 +1,11 @@
 import React from 'react';
 import { useLocation } from 'react-router-dom';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 
 const Header = ({ onMenuToggle }) => {
   const location = useLocation();
+  const { user, signOut } = useAuth();
 
   const getPageTitle = () => {
     switch (location.pathname) {
@@ -44,6 +46,18 @@ const Header = ({ onMenuToggle }) => {
               </svg>
               Add Entry
             </Link>
+          )}
+          
+          {user && (
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-neutral-600">{user.email}</span>
+              <button 
+                onClick={signOut}
+                className="text-sm text-neutral-500 hover:text-neutral-700"
+              >
+                Sign out
+              </button>
+            </div>
           )}
         </div>
       </div>

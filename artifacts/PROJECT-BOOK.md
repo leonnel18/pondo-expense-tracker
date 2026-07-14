@@ -1,5 +1,5 @@
 # PROJECT-BOOK — Pondo Household Expense Tracker
-**Project:** Pondo · **Version:** 1.0 (shipped) + Recon Cycle 1 backlog (v1.1–v2.11 planned) · **Date:** 2026-07-12 · **Status:** v1 COMPLETE (G8) · Recon Cycle 1 COMPLETE through Gate S2 — 19-sprint roadmap approved, awaiting Forge handoff
+**Project:** Pondo · **Version:** 1.0 (shipped, package.json still reads 1.0.0) + Recon Cycle 1 backlog (v1.1–v2.11 planned) · **Date:** 2026-07-12 (base build), reconciled 2026-07-14 · **Status:** v1 COMPLETE (G8) · Recon Cycle 1 COMPLETE through Gate S2 (roadmap approved) · **Actual current state deviates from that roadmap — see §15 "Post-Recon Reconciliation" below: Supabase+Vercel cutover shipped 2026-07-13/14, out of the approved sequence, with v1.1–v1.5 and v2.0 Sprint 2 (multi-user auth) skipped**
 
 ---
 
@@ -178,3 +178,47 @@ Key outcomes include a fully functional React/Express/SQLite stack with support 
 
 ### 14.6 Status
 **Recon Cycle 1: COMPLETE through Gate S2 (2026-07-12).** Roadmap is approved and ready for handoff to The Forge, starting with v1.1 ("Fix what's broken, verify what's already built"). Cloud migration (v2.0) is sequenced as the 6th version, immediately after the pre-cloud Minor backlog clears.
+
+**This sequencing describes the plan, not what actually happened next — see §15 below.** The cloud migration was built and deployed directly on 2026-07-13/14, without v1.1–v1.5 or v2.0 Sprint 2 (multi-user auth) being completed first.
+
+---
+
+## 15. Post-Recon Reconciliation — Supabase/Vercel cutover (2026-07-13 / 2026-07-14)
+
+**Nature of this section:** the sections above (§§1–14) were written from tracked build/Recon sessions with known agents, models, and timestamps. This section is different — it documents a real change to the running application that happened with **no tracked session**: no agent attribution, no model, no start/end time. It is reconstructed from file-system evidence (mtimes, dependency diffs) and direct code reads performed 2026-07-14, and it says so rather than inventing a session record to match the format above. Full evidence detail and file-by-file citations live in `artifacts/milestone-log.md` under "Post-Recon Reconciliation" — this section summarizes for the project-status record.
+
+### 15.1 What shipped
+
+The application was cut over from SQLite (self-hosted) to **Supabase (Postgres)**, and deployed to **Vercel** as a serverless app (`vercel.json` builds `client/` via Vite, routes `/api/*` through `api/index.js` → `server/server.js`). This corresponds to v2.0 Sprint 3, Slices 4–5 in `docs/recon/sprint-backlog.md`. File evidence: `server/db/{client,supabase,queries}.js` and `server/db/migration.sql` all carry 2026-07-13 evening mtimes; `server/package.json` (now `@supabase/supabase-js`-based, no `sqlite3`/`better-sqlite3`) and `vercel.json` carry 2026-07-14 mtimes, consistent with Gino's same-day report that the deployment is live.
+
+### 15.2 Sequencing deviation (flagged, stated neutrally)
+
+The approved Gate-S2 roadmap put v1.1–v1.5 (bug-fix/polish backlog on the *old* architecture) and v2.0 Sprint 1–2 (hosting decision, then multi-user auth) *before* the v2.0 Sprint 3 data-layer/hosting slices that actually shipped. That ordering was not followed — Sprint 3's slices shipped directly, with v1.1–v1.5 and Sprint 2 skipped. Stated here as an observed fact from file evidence, not as a judgment; no tracked session exists to establish who made the sequencing call or why.
+
+### 15.3 Known-open defects, confirmed still present in the new (Supabase) code
+
+Direct 2026-07-14 code read confirms these three v1.1-backlog items (originally found against the old SQLite code in Recon Cycle 1) carried through the migration unfixed:
+
+- **US-01** — net-worth sign bug: `getDashboardKPIs`/`getAccountBalance` in `server/db/queries.js` still add every account's balance into the total regardless of asset/liability type (Credit, Borrowed should subtract, don't).
+- **US-29** — `accounts.js`/`categories.js` still bypass the central error handler (local `try/catch` → direct `res.status(500)` instead of `next(error)`).
+- **US-30** — orphaned `server/schema.js` and stray `server/database.sqlite` (+ backup) files still on disk, now divergent from the live Supabase database.
+
+These are open, not fixed by the migration. They're being addressed in a separate, parallel workstream — not claimed as resolved here.
+
+### 15.4 Open gap: multi-user auth (v2.0 Sprint 2) still not built
+
+`server/middleware/auth.js` and `client/src/lib/api.js` still implement the v1 single-shared-passphrase model (one bcrypt hash in `settings`, one `X-App-Passphrase` header); `server/db/migration.sql` has no `users` table. The app is now publicly reachable on Vercel with this single-passphrase model unchanged — flagged as a real, open gap, not resolved.
+
+### 15.5 Also noted, out of scope for this reconciliation
+
+- `artifacts/06-runbook.md` still describes the 2026-07-11 self-hosted-Windows deployment (`localhost:3001`, SQLite path) and does not reflect Vercel+Supabase. Not rewritten here (devops task).
+- `client/package.json` / `server/package.json` still read `1.0.0`. Left as-is; version bump is a separate pm pass after the open defects (§15.3) land.
+- No CHANGELOG.md exists or was created — this project logs changes in `milestone-log.md`/`PROJECT-BOOK.md`, consistent with its existing convention.
+
+### 15.6 Current status (supersedes §14.6 for "what's actually true right now")
+
+- **Actual current phase:** v2.0 Sprint 3 (data-layer + hosting) shipped, out of the approved sequence; v1.1–v1.5 and v2.0 Sprint 2 not done.
+- **Live defects:** US-01, US-29, US-30 (open, in production Supabase code).
+- **Live security/scope gap:** no multi-user auth; app is public with a single shared passphrase.
+- **Stale docs:** `06-runbook.md` (deployment target), package.json versions (both still 1.0.0).
+- **Not established by this record:** who/what performed the migration and why the approved sequencing wasn't followed — no tracked session exists to attribute this to.

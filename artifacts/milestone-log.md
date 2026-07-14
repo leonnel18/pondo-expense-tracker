@@ -130,3 +130,88 @@ Classic FR-traceability (FR → wireframe → SAD → code → test) does not ye
 - **Blockers:** None for v1.1–v1.5 (current architecture). v2.0 cloud migration's Sprint 1 has an open hosting-target decision (Slice 2 spike) and an open question for Gino (does self-hosted remain supported post-v2.0, or cloud-only — sprint-backlog.md §4 "What breaks" — **per Gino's cycle direction, resolved as cloud-only after v2.0, self-hosted retired, not maintained in parallel**).
 - **Open items carried forward, not resolved by this record-keeping pass:** SAD/code driver conflict (#1 above), US-22 priority-tag staleness (Housekeeping #3), `tmp/idea-pool-data.md` origin (#4 above), 2 sub-slice sizing gaps flagged in `sprint-backlog.md` §6 (US-24 auto-cat slice, US-25 in-app-nudge slice — recommended feasibility follow-up, not committed).
 - **Two real code-hygiene bugs surfaced incidentally** (not InnerGrow-comparison findings): `accounts.js`/`categories.js` bypass the central error handler (US-29, scheduled v1.1); an orphaned dead-code script created a divergent second SQLite file `server/database.sqlite` (US-30, scheduled v1.1).
+- **Superseded by the undocumented Supabase/Vercel cutover recorded below (2026-07-13/14) — see "Post-Recon Reconciliation" section.** The sequencing this snapshot describes (v1.1–v1.5 before v2.0) was not what actually happened.
+
+---
+
+## Post-Recon Reconciliation — Supabase/Vercel cutover (2026-07-13 / 2026-07-14)
+
+**Nature of this entry:** unlike every table row above, this section is **not** built from a live-tracked agent session — there is no start/end timestamp, no assigned specialist agent, and no model attribution to report, because none was tracked at build time. It is reconstructed after the fact, purely from file-system evidence (file mtimes, dependency diffs, direct code reads performed this session) gathered 2026-07-14. Where the record can't establish who or what made a change, it says so rather than inventing an agent, model, or duration to match the format of the rows above.
+
+### What happened
+
+Between 2026-07-13 and 2026-07-14, the running application was cut over from a SQLite/self-hosted data layer to **Supabase (Postgres)**, and deployed to **Vercel** as a serverless app. This corresponds functionally to v2.0 Sprint 3, Slices 4 and 5 (data-layer migration and hosting cutover) in `docs/recon/sprint-backlog.md` — but it was **not preceded by v1.1–v1.5** (the approved bug-fix/polish backlog on the old architecture) or by **v2.0 Sprint 2** (multi-user auth), both of which the approved sequencing in `sprint-backlog.md` (Gate S2, approved 2026-07-12) put *before* the data-layer/hosting slices, specifically to avoid layering new cloud work on known-broken code.
+
+**Evidence (file-system, verified directly this session, not assumed):**
+
+- `server/package.json` dependencies are now `@supabase/supabase-js`, `bcrypt`, `cors`, `dotenv`, `express`, `zod` — `sqlite3`/`better-sqlite3` are gone. `devDependencies` adds `@vercel/node`. File mtime 2026-07-14 20:17.
+- `server/db/client.js` (mtime 2026-07-13 23:18), `server/db/supabase.js` (mtime 2026-07-13 23:30), `server/db/queries.js` (mtime 2026-07-13 23:33) are fully Supabase-client-based (`.from()/.select()/.eq()` query builder calls, confirmed by direct read). `server/db/migration.sql` (mtime 2026-07-13 23:36) defines the new Postgres schema (`accounts`, `entries`, `categories`, `settings` — no `users` table).
+- Root-level `vercel.json` (mtime 2026-07-14 20:14) builds `client/` via Vite (`outputDirectory: client/dist`) and rewrites `/api/*` to `api/index.js`, which does `require('../server/server')` — confirming the Express app is now running as a Vercel serverless function, not a standalone `localhost:3001` process.
+- The old data layer was not removed: `server/schema.js` (orphaned dead-code file, already flagged as US-30 in Recon Cycle 1) and `server/database.sqlite` + `server/database.sqlite.backup_20260713_150634` (mtimes 2026-07-13 13:35) are all still present on disk alongside the new Supabase code.
+- Gino confirmed today (2026-07-14) that the deployment is live, consistent with `vercel.json`'s same-day mtime.
+
+**Sequencing deviation — flagged, not smoothed over:** the approved roadmap in `sprint-backlog.md` sequenced v1.1–v1.5 (cheap fixes/polish on the *old* architecture) and v2.0 Sprint 1–2 (hosting-target decision, then multi-user auth) *before* v2.0 Sprint 3 (data-layer migration) and hosting cutover. What actually shipped is Sprint 3's data-layer and hosting slices only, direct, with v1.1–v1.5 and Sprint 2 skipped. This log states that deviation as an observed fact from file evidence; it does not assign cause or blame — there is no tracked session record establishing who performed the migration or why the sequencing wasn't followed.
+
+### Known-open defects carried into the new Supabase code (not fixed by the migration)
+
+These three were already flagged as v1.1 backlog items in Recon Cycle 1 (`kill-absorb-review.md` §7, `sprint-backlog.md`) against the *old* SQLite code. Direct code read of the *new* Supabase code (2026-07-14) confirms all three are still present, unfixed, in the migrated codebase:
+
+- **US-01 (net-worth sign bug):** `getDashboardKPIs` and `getAccountBalance` in `server/db/queries.js` still accumulate every account's computed balance into `totalBalance`/`total_balance` via unconditional addition (`totalBalance += accountBalance`), regardless of whether the account type is an asset or a liability — Credit and Borrowed balances are added rather than subtracted. Confirmed at `server/db/queries.js` lines ~756–771 (account-type switch) and ~778 (total_balance assignment).
+- **US-29 (central error handler bypass):** `server/routes/accounts.js` and `server/routes/categories.js` still catch errors locally and respond directly (`res.status(500).json({ error: error.message })`) instead of calling `next(error)` to route through the app's central error handler. Confirmed at `accounts.js` lines 18–37 (both GET routes).
+- **US-30 (orphaned files never removed):** `server/schema.js` (the dead-code `better-sqlite3` file) and `server/database.sqlite` (plus its `.backup_20260713_150634` copy) are still present on disk, now stale/divergent from the live Supabase database. Confirmed present via directory listing 2026-07-14.
+
+**These are open, not fixed.** They are being addressed in a separate, parallel workstream (not this reconciliation pass) — this entry records their status as of 2026-07-14, it does not claim resolution.
+
+### Open gap: multi-user auth (v2.0 Sprint 2) not done
+
+`sprint-backlog.md`'s v2.0 Sprint 2 scoped multi-user authentication as a prerequisite before the app went publicly reachable. Direct code read confirms this was **not built**:
+
+- `server/middleware/auth.js` still validates a single bcrypt-hashed passphrase stored in `settings` (`getSetting('passphrase_hash')`) against one shared `X-App-Passphrase` header — no per-user identity.
+- `client/src/lib/api.js` still stores one passphrase client-side (`sessionStorage.getItem('pondo_passphrase')`) and attaches it as `X-App-Passphrase` on every request.
+- `server/db/migration.sql` has no `users` table.
+
+The app is now publicly reachable on Vercel with this single-shared-passphrase model unchanged from v1. This is flagged as a real, currently-open security/scope gap — not resolved by the migration, and not something this reconciliation pass fixes (out of scope; a build/security decision for the parallel workstream or Gino, not a documentation call).
+
+### Also noted, not fixed by this pass
+
+- `artifacts/06-runbook.md` is unchanged since 2026-07-11 and still describes the old self-hosted-Windows deployment (`http://localhost:3001`, SQLite file path). It does not reflect the Vercel+Supabase reality. Rewriting it is a devops task, out of scope here — flagged only.
+- `client/package.json` and `server/package.json` both still read `"version": "1.0.0"` despite the data-layer/hosting migration. Left as-is per instruction — a version bump is a separate pm pass, to happen after the three open defects above are fixed.
+- No CHANGELOG.md exists for this project; per this project's existing convention (milestone-log.md + PROJECT-BOOK.md, no separate CHANGELOG), none was created for this entry either.
+
+### Reconciliation status snapshot
+
+- **Current phase (actual, as of 2026-07-14):** v2.0 Sprint 3 (data-layer migration, hosting cutover) shipped directly, out of sequence — v1.1–v1.5 and v2.0 Sprint 2 (multi-user auth) were skipped, not completed.
+- **Last verified state change:** Supabase+Vercel cutover, file evidence dated 2026-07-13 evening through 2026-07-14.
+- **Blockers/open items:** US-01, US-29, US-30 (all open, in new code) · multi-user auth gap (v2.0 Sprint 2, not built, app is public with single shared passphrase) · runbook stale (`06-runbook.md`, out of scope this pass) · versions not bumped (out of scope this pass, deferred to post-bugfix pm pass).
+- **Not determined by this record:** which agent/tool/session performed the migration, and why the approved sequencing (v1.1–v1.5 before v2.0) was not followed — no tracked session exists to attribute this to; stated as an open fact, not guessed at.
+
+---
+
+## Session — v1.1 backfill + v2.0 Sprint 2 (auth) requirements & design (2026-07-14)
+
+**Trigger:** Gino asked to start V2.x work and confirmed the three open defects above should be backfilled before continuing, followed by planning (not yet building) the missing multi-user auth slice. Orchestrated by DARKLING (Claude, this session); backfill executed by `forge-dev`/`forge-qa` (Claude, Sonnet tier); auth requirements/design executed by FRIDAY's OpenClaw Workshop Crew (`analyst`, `architect`, Ollama `deepseek-v4-pro:cloud`).
+
+### v1.1 defects fixed (of the three carried open above)
+
+| ID | Fix | Verified |
+|----|-----|----------|
+| US-01 | `getDashboardKPIs` in `server/db/queries.js` now applies `totalBalance = Σ(Debit)+Σ(Invest)+Σ(Lent) − Σ(Credit)−Σ(Borrowed)` per BRD FR-5, instead of unconditional addition. | Live Supabase test (temp accounts/entries, inserted → computed → deleted): correct result 1200 vs. the old bug's 2600 for the same test mix. |
+| US-29 | `server/routes/accounts.js` and `server/routes/categories.js` now call `next(error)` instead of `res.status(500).json({error: error.message})`, matching `entries.js`'s existing pattern and routing through the Postgres-aware central error handler. | `node --check` syntax pass; grep confirms zero remaining local-500-catch occurrences in `server/routes/`. |
+| US-30 | Orphaned `server/schema.js` (dead `better-sqlite3` code) and stray `server/database.sqlite` removed, after confirming no live code references either. | Grep-confirmed unreferenced before deletion; files gone after. |
+
+**Also flagged, not fixed (out of scope, follow-up recommended):** `server/db/schema.js` (a second, differently-located dead-code file, same category as US-30 but not in its named scope), `server/check-db.js`, `server/test-schema.js`, and stray `.db`/`.sqlite.backup_*` files from the SQLite era.
+
+**Versions bumped:** `client/package.json` and `server/package.json` → `1.1.0` (was `1.0.0` since v1). `CHANGELOG.md` created at project root (Keep a Changelog style) — first time this project has had one; supersedes the "no CHANGELOG, milestone-log only" convention noted in the prior reconciliation entry.
+
+### v2.0 Sprint 2 (multi-user auth) — requirements & architecture design, APPROVED
+
+Two new artifacts under `docs/v2.0-sprint2-auth/`:
+
+- **`01-requirements-addendum.md`** (analyst) — 15 FRs, 8 NFRs, 6 open questions. Key recommendation: build `public.users` + nullable `user_id` FK on `accounts` now (not deferred to US-22); use Supabase Auth as the provider.
+- **`02-architecture-design.md`** (architect) — full SAD for the slice: schema DDL, middleware rewrite, `/api/auth/*` surface, client-side `AuthProvider`/`AuthGate`, 3-phase cutover plan. Notably caught a real conflict the analyst's requirements didn't resolve: Supabase's client SDK defaults to `localStorage` for session tokens, which violates NFR-A4 (no JWT in localStorage) — architect specified the `@supabase/ssr` cookie-based pattern instead.
+
+**Gate:** APPROVED by Gino, 2026-07-14 — equivalent to a G3 architecture gate, given this changes the auth model on a live public app. **Implementation (Phase 4) not yet started** — awaiting separate go-ahead.
+
+### Infrastructure change: per-project OpenClaw agent clones
+
+Eight project-scoped clones (`analyst-pondo`, `ux-pondo`, `brand-pondo`, `architect-pondo`, `dev-pondo`, `qa-pondo`, `devops-pondo`, `pm-pondo`) were created so FRIDAY's Workshop Crew can work directly against this project's real files instead of a sandboxed default workspace. Each clone keeps its own role-specific `AGENTS.md` persona (verified distinct from a generic project-level `AGENTS.md` that was incidentally already sitting in the project root from the undocumented migration above) in a dedicated `~\.openclaw\workspace-<role>-pondo\` directory, with a directory junction (`pondo\`) linking live to this project folder for real file access. Added to `friday`'s `subagents.allowAgents` so FRIDAY itself can delegate to them, not just DARKLING. Gateway restarted 2026-07-14 to apply both changes.

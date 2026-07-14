@@ -1,16 +1,5 @@
 const API_BASE = '/api';
 
-// Only attached once the user actually unlocks the app with a real passphrase (see set-passphrase flow).
-// Never hardcode a secret here — it would ship in the public JS bundle and defeat the feature.
-const getStoredPassphrase = () => sessionStorage.getItem('pondo_passphrase') || null;
-
-const buildHeaders = (extra = {}) => {
-  const headers = { ...extra };
-  const passphrase = getStoredPassphrase();
-  if (passphrase) headers['X-App-Passphrase'] = passphrase;
-  return headers;
-};
-
 const parseErrorMessage = (error, fallback) => {
   if (!error) return fallback;
   // Direct string error
@@ -35,10 +24,32 @@ const apiRequest = async (endpoint, options = {}) => {
 
   const config = {
     ...options,
-    headers: buildHeaders({ 'Content-Type': 'application/json', ...(options.headers || {}) }),
+    headers: {
+      'Content-Type': 'application/json',
+      ...(options.headers || {}),
+    },
+    // Send cookies (httpOnly) with every request
+    credentials: 'include',
   };
 
-  const response = await fetch(url, config);
+  let response = await fetch(url, config);
+
+  // If 401 with TOKEN_EXPIRED, attempt refresh and retry once (FR-A8)
+  if (response.status === 401) {
+    const body = await response.json().catch(() => ({}));
+    if (body.error?.code === 'TOKEN_EXPIRED') {
+      // Attempt refresh
+      const refreshRes = await fetch(`${API_BASE}/auth/refresh`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+
+      if (refreshRes.ok) {
+        // Retry the original request
+        response = await fetch(url, config);
+      }
+    }
+  }
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
@@ -52,7 +63,7 @@ const apiRequest = async (endpoint, options = {}) => {
 // Downloads a file response (e.g. CSV export) by streaming it to a real browser download
 const downloadFile = async (endpoint) => {
   const url = `${API_BASE}${endpoint}`;
-  const response = await fetch(url, { headers: buildHeaders() });
+  const response = await fetch(url, { credentials: 'include' });
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
@@ -212,14 +223,39 @@ export const getSystemStatus = () => {
   return apiRequest('/status');
 };
 
-export const setupApp = (passphrase) => {
-  return apiRequest('/setup', {
+// Auth API
+export const signIn = (email, password) => {
+  return apiRequest('/auth/signin', {
     method: 'POST',
-    body: JSON.stringify(passphrase ? { passphrase } : {})
+    body: JSON.stringify({ email, password })
   });
+};
+
+export const signUp = (email, password) => {
+  return apiRequest('/auth/signup', {
+    method: 'POST',
+    body: JSON.stringify({ email, password })
+  });
+};
+
+export const signOut = () => {
+  return apiRequest('/auth/signout', {
+    method: 'POST'
+  });
+};
+
+export const getAuthUser = () => {
+  return apiRequest('/auth/me');
 };
 
 // Settings API
 export const getSettings = () => {
   return apiRequest('/settings');
+};
+
+export const updateSettings = (settings) => {
+  return apiRequest('/settings', {
+    method: 'PUT',
+    body: JSON.stringify(settings)
+  });
 };

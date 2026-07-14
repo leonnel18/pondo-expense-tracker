@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const cookieParser = require('cookie-parser');
 
 // Import middleware
 const authMiddleware = require('./middleware/auth');
@@ -14,6 +15,7 @@ const categoriesRouter = require('./routes/categories');
 const dashboardRouter = require('./routes/dashboard');
 const exportRouter = require('./routes/export');
 const systemRouter = require('./routes/system');
+const authRouter = require('./routes/auth'); // new auth router
 
 // Create Express app
 const app = express();
@@ -22,14 +24,24 @@ const PORT = process.env.PORT || 3001;
 // Middleware
 app.use(cors());
 app.use(express.json());
+app.use(cookieParser());
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
-// Apply auth middleware to all API routes
-app.use('/api', authMiddleware);
+// Auth routes are unauthenticated — apply before the global auth middleware
+app.use('/api/auth', authRouter);
+
+// Apply auth middleware to all OTHER API routes
+app.use('/api', (req, res, next) => {
+  // Skip auth for /api/auth/* and /api/health
+  if (req.path.startsWith('/auth') || req.path === '/health') {
+    return next();
+  }
+  authMiddleware(req, res, next);
+});
 
 // API routes
 app.use('/api/accounts', accountsRouter);

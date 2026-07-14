@@ -768,7 +768,19 @@ const getDashboardKPIs = async (from, to) => {
         break;
     }
     
-    totalBalance += accountBalance;
+    // Aggregate into net worth: assets (debit/invest/lent) add, liabilities
+    // (credit/borrowed) subtract, per BRD FR-5 account-type semantics.
+    switch (account.type) {
+      case 'debit':
+      case 'invest':
+      case 'lent':
+        totalBalance += accountBalance;
+        break;
+      case 'credit':
+      case 'borrowed':
+        totalBalance -= accountBalance;
+        break;
+    }
   });
 
   return {

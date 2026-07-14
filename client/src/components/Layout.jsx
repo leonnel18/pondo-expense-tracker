@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { getSystemStatus, setupApp } from '../lib/api';
+import { getSystemStatus } from '../lib/api';
 import Sidebar from './Sidebar';
 import Header from './Header';
 
@@ -20,16 +20,14 @@ const Layout = () => {
         setError(null);
 
         // Check system status
-        let status = await getSystemStatus();
-
-        // Run first-launch setup automatically (creates the default Cash account + seeds categories)
+        const status = await getSystemStatus();
+        setIsFirstLaunch(status.first_launch);
+        
+        // Show welcome banner for new users
         if (status.first_launch) {
-          await setupApp();
-          status = await getSystemStatus();
           setShowWelcome(true);
         }
 
-        setIsFirstLaunch(status.first_launch);
         setIsLoading(false);
       } catch (err) {
         setError(err.message);
