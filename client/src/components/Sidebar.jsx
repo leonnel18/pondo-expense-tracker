@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, ClipboardList, Wallet, Tags, Download } from 'lucide-react';
+import { Wallet } from 'lucide-react';
+import { navItems } from '../lib/navigation';
 
 const Sidebar = ({ isOpen = false, onClose }) => {
   const location = useLocation();
@@ -9,13 +10,6 @@ const Sidebar = ({ isOpen = false, onClose }) => {
     return location.pathname === path;
   };
 
-  const navItems = [
-    { path: '/', label: 'Dashboard', icon: LayoutDashboard },
-    { path: '/entries', label: 'All Entries', icon: ClipboardList },
-    { path: '/accounts', label: 'Accounts', icon: Wallet },
-    { path: '/categories', label: 'Categories', icon: Tags },
-    { path: '/export', label: 'Export', icon: Download },
-  ];
 
   return (
     <>

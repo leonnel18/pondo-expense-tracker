@@ -7,7 +7,8 @@ const getAccounts = async (sort = 'name', order = 'ASC') => {
     .select(`
       id, name, type, description, emoji, created_at, updated_at,
       entries(count)
-    `);
+    `)
+    .is('deleted_at', null);  // Add deleted_at filter for soft-delete
 
   // Handle sorting
   let orderBy;
@@ -60,6 +61,7 @@ const getAccountById = async (id) => {
       entries(count)
     `)
     .eq('id', id)
+    .is('deleted_at', null)  // Add deleted_at filter for soft-delete
     .single();
 
   if (error) {
@@ -84,6 +86,7 @@ const getAccountBalance = async (id) => {
       entries(type, amount)
     `)
     .eq('id', id)
+    .is('deleted_at', null)  // Add deleted_at filter for soft-delete
     .single();
 
   if (error) {
@@ -96,11 +99,11 @@ const getAccountBalance = async (id) => {
 
   // Calculate totals
   const totalIncome = data.entries
-    .filter(e => e.type === 'income')
+    .filter(e => e.type === 'income' && !e.deleted_at)  // Add JS filter for soft-deleted entries
     .reduce((sum, entry) => sum + entry.amount, 0);
 
   const totalExpense = data.entries
-    .filter(e => e.type === 'expense')
+    .filter(e => e.type === 'expense' && !e.deleted_at)  // Add JS filter for soft-deleted entries
     .reduce((sum, entry) => sum + entry.amount, 0);
 
   // Calculate balance based on account type
@@ -169,8 +172,9 @@ const updateAccount = async (id, account) => {
 const deleteAccount = async (id) => {
   const { data, error } = await supabase
     .from('accounts')
-    .delete()
+    .update({ deleted_at: new Date().toISOString() })
     .eq('id', id)
+    .is('deleted_at', null)  // Only update non-deleted accounts
     .select()
     .single();
 
@@ -178,14 +182,15 @@ const deleteAccount = async (id) => {
     throw error;
   }
 
-  return { id: data.id };
+  return { id: data.id, deleted_at: data.deleted_at };
 };
 
 const getAccountEntryCount = async (id) => {
   const { count, error } = await supabase
     .from('entries')
     .select('*', { count: 'exact', head: true })
-    .eq('account_id', id);
+    .eq('account_id', id)
+    .is('deleted_at', null);  // Add deleted_at filter for soft-delete
 
   if (error) {
     throw error;
@@ -201,7 +206,8 @@ const reassignAccountEntries = async (fromId, toId) => {
       account_id: toId,
       updated_at: new Date().toISOString()
     })
-    .eq('account_id', fromId);
+    .eq('account_id', fromId)
+    .is('deleted_at', null);  // Only reassign non-deleted entries
 
   if (error) {
     throw error;
@@ -213,14 +219,16 @@ const reassignAccountEntries = async (fromId, toId) => {
 const deleteEntriesByAccount = async (id) => {
   const { data, error } = await supabase
     .from('entries')
-    .delete()
-    .eq('account_id', id);
+    .update({ deleted_at: new Date().toISOString() })
+    .eq('account_id', id)
+    .is('deleted_at', null)  // Only update non-deleted entries
+    .select();
 
   if (error) {
     throw error;
   }
 
-  return { deleted: data.length };
+  return { soft_deleted: data.length };
 };
 
 // Category queries
@@ -342,7 +350,8 @@ const getCategoryEntryCount = async (id) => {
   const { count, error } = await supabase
     .from('entries')
     .select('*', { count: 'exact', head: true })
-    .eq('category_id', id);
+    .eq('category_id', id)
+    .is('deleted_at', null);  // Add deleted_at filter for soft-delete
 
   if (error) {
     throw error;
@@ -358,7 +367,8 @@ const reassignCategoryEntries = async (fromId, toId) => {
       category_id: toId,
       updated_at: new Date().toISOString()
     })
-    .eq('category_id', fromId);
+    .eq('category_id', fromId)
+    .is('deleted_at', null);  // Only reassign non-deleted entries
 
   if (error) {
     throw error;
@@ -395,7 +405,8 @@ const getEntries = async (filters = {}) => {
       id, type, amount, note, date, created_at, updated_at,
       account:accounts(id, name, type, emoji),
       category:categories(id, name, type, color, icon)
-    `);
+    `)
+    .is('deleted_at', null);  // Add deleted_at filter for soft-delete
 
   // Apply filters
   if (filters.type) {
@@ -477,6 +488,7 @@ const getEntryById = async (id) => {
       category:categories(id, name, type, color, icon)
     `)
     .eq('id', id)
+    .is('deleted_at', null)  // Add deleted_at filter for soft-delete
     .single();
 
   if (error) {
@@ -603,8 +615,9 @@ const updateEntry = async (id, entry) => {
 const deleteEntry = async (id) => {
   const { data, error } = await supabase
     .from('entries')
-    .delete()
+    .update({ deleted_at: new Date().toISOString() })
     .eq('id', id)
+    .is('deleted_at', null)  // Only update non-deleted entries
     .select()
     .single();
 
@@ -612,21 +625,23 @@ const deleteEntry = async (id) => {
     throw error;
   }
 
-  return { id: data.id };
+  return { id: data.id, deleted_at: data.deleted_at };
 };
 
 // New function for entries
 const bulkDeleteEntries = async (ids) => {
   const { data, error } = await supabase
     .from('entries')
-    .delete()
-    .in('id', ids);
+    .update({ deleted_at: new Date().toISOString() })
+    .in('id', ids)
+    .is('deleted_at', null)  // Only update non-deleted entries
+    .select();
 
   if (error) {
     throw error;
   }
 
-  return { deleted: data.length };
+  return { soft_deleted: data.length };
 };
 
 // Export queries
@@ -637,7 +652,8 @@ const getEntriesForExport = async (from, to) => {
       id, type, amount, note, date, created_at, updated_at,
       account:accounts(name),
       category:categories(name)
-    `);
+    `)
+    .is('deleted_at', null);  // Add deleted_at filter for soft-delete
 
   if (from) {
     query = query.gte('date', from);
@@ -673,6 +689,7 @@ const getAccountsForExport = async () => {
   const { data, error } = await supabase
     .from('accounts')
     .select('id, name, type, description, emoji, created_at, updated_at')
+    .is('deleted_at', null)  // Add deleted_at filter for soft-delete
     .order('name', { ascending: true });
 
   if (error) {
@@ -687,7 +704,8 @@ const getDashboardKPIs = async (from, to) => {
   // First get all entries for income/expense calculations
   let entriesQuery = supabase
     .from('entries')
-    .select('type, amount');
+    .select('type, amount')
+    .is('deleted_at', null);  // Add deleted_at filter for soft-delete
 
   if (from) {
     entriesQuery = entriesQuery.gte('date', from);
@@ -720,7 +738,8 @@ const getDashboardKPIs = async (from, to) => {
     .select(`
       id, type,
       entries(type, amount)
-    `);
+    `)
+    .is('deleted_at', null);  // Add deleted_at filter for soft-delete
 
   const { data: accountsData, error: accountsError } = await accountsQuery;
 
@@ -742,6 +761,9 @@ const getDashboardKPIs = async (from, to) => {
         return (!fromDate || entryDate >= fromDate) && (!toDate || entryDate <= toDate);
       });
     }
+    
+    // Add JS filter for soft-deleted entries
+    accountEntries = accountEntries.filter(e => !e.deleted_at);
     
     // Calculate account balance
     const totalIncome = accountEntries
@@ -794,7 +816,8 @@ const getDashboardKPIs = async (from, to) => {
 const getDashboardMoM = async (from, to) => {
   let query = supabase
     .from('entries')
-    .select('date, type, amount');
+    .select('date, type, amount')
+    .is('deleted_at', null);  // Add deleted_at filter for soft-delete
 
   if (from) {
     query = query.gte('date', from);
@@ -845,7 +868,8 @@ const getExpenseBreakdown = async (from, to) => {
       type,
       amount
     `)
-    .eq('type', 'expense');
+    .eq('type', 'expense')
+    .is('deleted_at', null);  // Add deleted_at filter for soft-delete
 
   if (from) {
     query = query.gte('date', from);
@@ -892,7 +916,8 @@ const getIncomeBreakdown = async (from, to) => {
       type,
       amount
     `)
-    .eq('type', 'income');
+    .eq('type', 'income')
+    .is('deleted_at', null);  // Add deleted_at filter for soft-delete
 
   if (from) {
     query = query.gte('date', from);
@@ -938,7 +963,8 @@ const getDashboardAccounts = async (from, to) => {
       accounts(name, type),
       type,
       amount
-    `);
+    `)
+    .is('deleted_at', null);  // Add deleted_at filter for soft-delete
 
   if (from) {
     query = query.gte('date', from);
@@ -1009,7 +1035,8 @@ const getRecentEntries = async (from, to, limit = 10) => {
       id, type, amount, note, date, created_at, updated_at,
       account:accounts(id, name, type, emoji),
       category:categories(id, name, type, color, icon)
-    `);
+    `)
+    .is('deleted_at', null);  // Add deleted_at filter for soft-delete
 
   if (from) {
     query = query.gte('date', from);
@@ -1103,7 +1130,8 @@ const getAllSettings = async () => {
 const getEntryCount = async (filters = {}) => {
   let query = supabase
     .from('entries')
-    .select('*', { count: 'exact', head: true });
+    .select('*', { count: 'exact', head: true })
+    .is('deleted_at', null);  // Add deleted_at filter for soft-delete
 
   // Apply filters
   if (filters.type) {
@@ -1133,6 +1161,205 @@ const getEntryCount = async (filters = {}) => {
   }
 
   return count;
+};
+
+// Recycle Bin functions
+const getRecycleBin = async (filters = {}) => {
+  const { type, page = 1, per_page = 20 } = filters;
+  const offset = (page - 1) * per_page;
+
+  // Get soft-deleted accounts
+  let accountsQuery = supabase
+    .from('accounts')
+    .select(`
+      id, name, type, description, emoji, deleted_at,
+      entries(count)
+    `)
+    .not('deleted_at', 'is', null);
+
+  // Get soft-deleted entries
+  let entriesQuery = supabase
+    .from('entries')
+    .select(`
+      id, type, amount, note, date, deleted_at,
+      account:accounts(name),
+      category:categories(name, type, color, icon)
+    `)
+    .not('deleted_at', 'is', null);
+
+  // Apply type filter if specified
+  if (type === 'accounts') {
+    entriesQuery = entriesQuery.eq('id', 0); // No entries when filtering by accounts
+  } else if (type === 'entries') {
+    accountsQuery = accountsQuery.eq('id', 0); // No accounts when filtering by entries
+  }
+
+  // Execute both queries
+  const [accountsResult, entriesResult] = await Promise.all([
+    accountsQuery,
+    entriesQuery
+  ]);
+
+  if (accountsResult.error) throw accountsResult.error;
+  if (entriesResult.error) throw entriesResult.error;
+
+  // Process accounts data
+  const accounts = accountsResult.data.map(account => ({
+    type: 'account',
+    id: account.id,
+    label: account.name,
+    account_type: account.type,
+    deleted_at: account.deleted_at,
+    days_remaining: Math.max(0, 30 - Math.floor((new Date() - new Date(account.deleted_at)) / (1000 * 60 * 60 * 24))),
+    entry_count: account.entries.length
+  }));
+
+  // Process entries data
+  const entries = entriesResult.data.map(entry => ({
+    type: 'entry',
+    id: entry.id,
+    label: `${entry.note || 'Untitled'} — ₱${entry.amount.toLocaleString()}`,
+    account_name: entry.account?.name || 'Unknown Account',
+    date: entry.date,
+    deleted_at: entry.deleted_at,
+    days_remaining: Math.max(0, 30 - Math.floor((new Date() - new Date(entry.deleted_at)) / (1000 * 60 * 60 * 24)))
+  }));
+
+  // Merge and sort by deleted_at DESC
+  const items = [...accounts, ...entries]
+    .sort((a, b) => new Date(b.deleted_at) - new Date(a.deleted_at))
+    .slice(offset, offset + per_page);
+
+  return {
+    items,
+    pagination: {
+      page,
+      per_page,
+      total: accounts.length + entries.length
+    }
+  };
+};
+
+const restoreItem = async (type, id) => {
+  // First, get the item to check if it exists and get its deleted_at timestamp
+  let item;
+  if (type === 'accounts') {
+    const { data, error } = await supabase
+      .from('accounts')
+      .select('deleted_at')
+      .eq('id', id)
+      .not('deleted_at', 'is', null)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') {
+        // No rows returned
+        return { restored: false, error: 'Item not found or already restored' };
+      }
+      throw error;
+    }
+    item = data;
+  } else if (type === 'entries') {
+    const { data, error } = await supabase
+      .from('entries')
+      .select('deleted_at')
+      .eq('id', id)
+      .not('deleted_at', 'is', null)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') {
+        // No rows returned
+        return { restored: false, error: 'Item not found or already restored' };
+      }
+      throw error;
+    }
+    item = data;
+  } else {
+    return { restored: false, error: 'Invalid type' };
+  }
+
+  // Restore the item
+  const { error: updateError } = await supabase
+    .from(type)
+    .update({ deleted_at: null })
+    .eq('id', id);
+
+  if (updateError) {
+    throw updateError;
+  }
+
+  // For accounts, also restore entries that were deleted at the same time (within 1 second)
+  let entriesRestored = 0;
+  if (type === 'accounts') {
+    const accountDeletedAt = new Date(item.deleted_at);
+    const timeWindowStart = new Date(accountDeletedAt.getTime() - 1000); // 1 second before
+    const timeWindowEnd = new Date(accountDeletedAt.getTime() + 1000);  // 1 second after
+
+    const { data: entriesData, error: entriesError } = await supabase
+      .from('entries')
+      .select('id')
+      .eq('account_id', id)
+      .not('deleted_at', 'is', null)
+      .gte('deleted_at', timeWindowStart.toISOString())
+      .lte('deleted_at', timeWindowEnd.toISOString());
+
+    if (entriesError) {
+      throw entriesError;
+    }
+
+    if (entriesData.length > 0) {
+      const entryIds = entriesData.map(entry => entry.id);
+      const { error: restoreEntriesError } = await supabase
+        .from('entries')
+        .update({ deleted_at: null })
+        .in('id', entryIds);
+
+      if (restoreEntriesError) {
+        throw restoreEntriesError;
+      }
+
+      entriesRestored = entryIds.length;
+    }
+  }
+
+  return { 
+    restored: true, 
+    id, 
+    type,
+    entries_restored: entriesRestored
+  };
+};
+
+const purgeExpired = async () => {
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+
+  // Purge expired entries
+  const { data: entriesData, error: entriesError } = await supabase
+    .from('entries')
+    .delete()
+    .lt('deleted_at', thirtyDaysAgo)
+    .select();
+
+  if (entriesError) {
+    throw entriesError;
+  }
+
+  // Purge expired accounts
+  const { data: accountsData, error: accountsError } = await supabase
+    .from('accounts')
+    .delete()
+    .lt('deleted_at', thirtyDaysAgo)
+    .select();
+
+  if (accountsError) {
+    throw accountsError;
+  }
+
+  return {
+    accounts: accountsData.length,
+    entries: entriesData.length
+  };
 };
 
 module.exports = {
@@ -1179,5 +1406,10 @@ module.exports = {
   getSetting,
   setSetting,
   getAllSettings,
-  getEntryCount
+  getEntryCount,
+
+  // Recycle Bin functions
+  getRecycleBin,
+  restoreItem,
+  purgeExpired
 };

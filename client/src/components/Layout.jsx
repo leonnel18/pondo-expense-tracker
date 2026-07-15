@@ -3,6 +3,7 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { getSystemStatus } from '../lib/api';
 import Sidebar from './Sidebar';
 import Header from './Header';
+import BottomNav from './BottomNav';
 
 const Layout = () => {
   const [isLoading, setIsLoading] = useState(true);
@@ -79,7 +80,7 @@ const Layout = () => {
       <Sidebar isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
       <div className="flex-1 flex flex-col">
         <Header onMenuToggle={() => setIsMenuOpen((open) => !open)} />
-        <main className="flex-1 p-6">
+        <main className="flex-1 p-6 pb-20 md:pb-6">
           {showWelcome && (
             <div className="bg-brand-50 border border-brand-200 rounded-lg p-4 mb-6">
               <div className="flex items-start">
@@ -121,6 +122,7 @@ const Layout = () => {
           )}
           <Outlet />
         </main>
+        <BottomNav />
       </div>
     </div>
   );

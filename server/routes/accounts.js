@@ -7,11 +7,9 @@ const {
   createAccount,
   updateAccount,
   deleteAccount,
-  getAccountEntryCount,
-  reassignAccountEntries,
   deleteEntriesByAccount
 } = require('../db/queries');
-const { validate, deleteAccountSchema } = require('../middleware/validate');
+const { validate } = require('../middleware/validate');
 
 // Get all accounts
 router.get('/', async (req, res, next) => {
@@ -89,7 +87,7 @@ router.put('/:id', validate(updateAccountSchema), async (req, res, next) => {
 });
 
 // Delete account
-router.delete('/:id', validate(deleteAccountSchema), async (req, res, next) => {
+router.delete('/:id', async (req, res, next) => {
   try {
     const id = req.params.id;
     const existingAccount = await getAccountById(id);
@@ -97,39 +95,18 @@ router.delete('/:id', validate(deleteAccountSchema), async (req, res, next) => {
       return res.status(404).json({ error: 'Account not found' });
     }
 
-    const entryCount = await getAccountEntryCount(id);
-    const { resolution, target_account_id } = req.body || {};
-
-    if (entryCount > 0) {
-      if (!resolution) {
-        return res.status(409).json({
-          error: {
-            code: 'HAS_ENTRIES',
-            message: `This account has ${entryCount} entr${entryCount === 1 ? 'y' : 'ies'}. Choose how to resolve them before deleting.`,
-            entry_count: entryCount,
-          },
-        });
-      }
-
-      if (resolution === 'reassign') {
-        if (!target_account_id) {
-          return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'target_account_id is required to reassign entries.' } });
-        }
-        if (Number(target_account_id) === Number(id)) {
-          return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Cannot reassign entries to the account being deleted.' } });
-        }
-        const targetAccount = await getAccountById(target_account_id);
-        if (!targetAccount) {
-          return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Target account not found.' } });
-        }
-        await reassignAccountEntries(id, target_account_id);
-      } else if (resolution === 'cascade') {
-        await deleteEntriesByAccount(id);
-      }
-    }
-
-    await deleteAccount(id);
-    res.status(204).send();
+    // Soft-delete the account
+    const deletedAccount = await deleteAccount(id);
+    
+    // Soft-delete all entries belonging to this account
+    const result = await deleteEntriesByAccount(id);
+    
+    // Return the soft-deleted account with entries count
+    res.status(200).json({
+      id: deletedAccount.id,
+      deleted_at: deletedAccount.deleted_at,
+      entries_soft_deleted: result.soft_deleted
+    });
   } catch (error) {
     next(error);
   }

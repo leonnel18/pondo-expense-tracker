@@ -8,5 +8,8 @@
   ],
   "functions": {
     "api/index.js": { "memory": 512, "maxDuration": 30 }
-  }
+  },
+  "crons": [
+    { "path": "/api/recycle-bin/purge", "schedule": "0 3 * * *" }
+  ]
 }

@@ -15,6 +15,7 @@ import EditAccount from './pages/EditAccount';
 import SignIn from './pages/SignIn';
 import SignUp from './pages/SignUp';
 import ResetPassword from './pages/ResetPassword';
+import RecycleBin from './pages/RecycleBin';
 
 const NotFound = () => (
   <div className="p-12 text-center">
@@ -49,6 +50,7 @@ function App() {
             <Route path="accounts/:id/edit" element={<EditAccount />} />
             <Route path="categories" element={<Categories />} />
             <Route path="export" element={<Export />} />
+            <Route path="recycle-bin" element={<RecycleBin />} />
             <Route path="*" element={<NotFound />} />
           </Route>
         </Routes>

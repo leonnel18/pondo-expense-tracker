@@ -50,20 +50,9 @@ const bulkDeleteEntriesSchema = z.object({
   }),
 });
 
-const deleteAccountSchema = z.object({
-  body: z.object({
-    resolution: z.enum(['reassign', 'cascade']).optional(),
-    target_account_id: z.number().int().positive().optional(),
-  }).optional(),
-  params: z.object({
-    id: z.string().regex(/^\d+$/),
-  }),
-});
-
 module.exports = {
   validate,
   createEntrySchema,
   updateEntrySchema,
-  bulkDeleteEntriesSchema,
-  deleteAccountSchema
+  bulkDeleteEntriesSchema
 };

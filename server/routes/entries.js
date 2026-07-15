@@ -283,8 +283,8 @@ router.delete('/:id', async (req, res, next) => {
       });
     }
 
-    await deleteEntry(id);
-    res.status(204).send();
+    const result = await deleteEntry(id);
+    res.status(200).json(result);
   } catch (error) {
     next(error);
   }

@@ -14,6 +14,7 @@ const Header = ({ onMenuToggle }) => {
       case '/accounts': return 'Accounts';
       case '/categories': return 'Categories';
       case '/export': return 'Export';
+      case '/recycle-bin': return 'Recycle Bin';
       default: return 'Pondo';
     }
   };

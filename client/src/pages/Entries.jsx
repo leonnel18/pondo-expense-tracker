@@ -336,7 +336,7 @@ const Entries = () => {
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 transition-all duration-200">
             <h2 className="text-lg font-semibold mb-4">Delete Entry</h2>
             <p className="text-gray-600 mb-6">
-              Are you sure you want to delete this entry? This action cannot be undone.
+              Are you sure you want to delete this entry? The entry will be moved to the Recycle Bin and can be restored within 30 days.
             </p>
             <div className="flex justify-end space-x-3">
               <button

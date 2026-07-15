@@ -112,10 +112,9 @@ export const updateAccount = (id, accountData) => {
   });
 };
 
-export const deleteAccount = (id, resolution) => {
+export const deleteAccount = (id) => {
   return apiRequest(`/accounts/${id}`, {
-    method: 'DELETE',
-    body: resolution ? JSON.stringify(resolution) : undefined
+    method: 'DELETE'
   });
 };
 
@@ -221,6 +220,20 @@ export const exportAccounts = () => {
 // System Status API
 export const getSystemStatus = () => {
   return apiRequest('/status');
+};
+
+// Recycle Bin API
+export const getRecycleBin = (params = {}) => {
+  const search = new URLSearchParams();
+  if (params.type) search.append('type', params.type);
+  if (params.page) search.append('page', params.page);
+  if (params.per_page) search.append('per_page', params.per_page);
+  const qs = search.toString();
+  return apiRequest(`/recycle-bin${qs ? `?${qs}` : ''}`);
+};
+
+export const restoreItem = (type, id) => {
+  return apiRequest(`/recycle-bin/restore/${type}/${id}`, { method: 'POST' });
 };
 
 // Auth API

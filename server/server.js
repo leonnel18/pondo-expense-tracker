@@ -16,6 +16,7 @@ const dashboardRouter = require('./routes/dashboard');
 const exportRouter = require('./routes/export');
 const systemRouter = require('./routes/system');
 const authRouter = require('./routes/auth'); // new auth router
+const recycleBinRouter = require('./routes/recycle-bin'); // recycle bin router
 
 // Create Express app
 const app = express();
@@ -36,8 +37,8 @@ app.use('/api/auth', authRouter);
 
 // Apply auth middleware to all OTHER API routes
 app.use('/api', (req, res, next) => {
-  // Skip auth for /api/auth/* and /api/health
-  if (req.path.startsWith('/auth') || req.path === '/health') {
+  // Skip auth for /api/auth/*, /api/health, and /api/recycle-bin/purge
+  if (req.path.startsWith('/auth') || req.path === '/health' || req.path === '/recycle-bin/purge') {
     return next();
   }
   authMiddleware(req, res, next);
@@ -49,6 +50,7 @@ app.use('/api/entries', entriesRouter);
 app.use('/api/categories', categoriesRouter);
 app.use('/api/dashboard', dashboardRouter);
 app.use('/api/export', exportRouter);
+app.use('/api/recycle-bin', recycleBinRouter); // Add recycle bin router
 app.use('/api', systemRouter);
 
 // Error handling middleware (must be last)
