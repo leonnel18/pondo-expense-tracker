@@ -272,3 +272,9 @@ export const updateSettings = (settings) => {
     body: JSON.stringify(settings)
   });
 };
+
+// Transfer API
+export const createTransfer = (data) => apiRequest('/transfers', { method: 'POST', body: JSON.stringify(data) });
+export const updateTransfer = (transferGroupId, data) => apiRequest(`/transfers/${transferGroupId}`, { method: 'PUT', body: JSON.stringify(data) });
+export const deleteTransfer = (transferGroupId) => apiRequest(`/transfers/${transferGroupId}`, { method: 'DELETE' });
+export const getTransfer = (transferGroupId) => apiRequest(`/transfers/${transferGroupId}`);

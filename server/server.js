@@ -17,6 +17,7 @@ const exportRouter = require('./routes/export');
 const systemRouter = require('./routes/system');
 const authRouter = require('./routes/auth'); // new auth router
 const recycleBinRouter = require('./routes/recycle-bin'); // recycle bin router
+const transfersRouter = require('./routes/transfers'); // transfers router
 
 // Create Express app
 const app = express();
@@ -51,6 +52,7 @@ app.use('/api/categories', categoriesRouter);
 app.use('/api/dashboard', dashboardRouter);
 app.use('/api/export', exportRouter);
 app.use('/api/recycle-bin', recycleBinRouter); // Add recycle bin router
+app.use('/api/transfers', transfersRouter); // Add transfers router
 app.use('/api', systemRouter);
 
 // Error handling middleware (must be last)

@@ -12,6 +12,8 @@ import AddEntry from './pages/AddEntry';
 import EditEntry from './pages/EditEntry';
 import AddAccount from './pages/AddAccount';
 import EditAccount from './pages/EditAccount';
+import AddTransfer from './pages/AddTransfer';
+import EditTransfer from './pages/EditTransfer';
 import SignIn from './pages/SignIn';
 import SignUp from './pages/SignUp';
 import ResetPassword from './pages/ResetPassword';
@@ -51,6 +53,8 @@ function App() {
             <Route path="categories" element={<Categories />} />
             <Route path="export" element={<Export />} />
             <Route path="recycle-bin" element={<RecycleBin />} />
+            <Route path="transfers/new" element={<AddTransfer />} />
+            <Route path="transfers/:transferGroupId/edit" element={<EditTransfer />} />
             <Route path="*" element={<NotFound />} />
           </Route>
         </Routes>

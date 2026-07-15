@@ -232,7 +232,11 @@ const Entries = () => {
                         {entry.category_emoji && (
                           <span className="text-lg mr-2">{entry.category_emoji}</span>
                         )}
-                        {entry.category_name}
+                        {entry.transfer_group_id ? (
+                          <span className="text-gray-500">Transfer</span>
+                        ) : (
+                          entry.category_name
+                        )}
                       </div>
                     </td>
                     <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
@@ -240,7 +244,15 @@ const Entries = () => {
                         {entry.account_emoji && (
                           <span className="text-lg mr-2">{entry.account_emoji}</span>
                         )}
-                        {entry.account_name}
+                        {entry.transfer_group_id ? (
+                          <div className="flex items-center">
+                            <span className="text-blue-500 mr-1">⇄</span>
+                            <span>{entry.account_name}</span>
+                            <span className="text-gray-400 ml-1">(Transfer)</span>
+                          </div>
+                        ) : (
+                          entry.account_name
+                        )}
                       </div>
                     </td>
                     <td className="px-3 py-4 text-sm text-gray-500 max-w-xs truncate">
@@ -252,21 +264,32 @@ const Entries = () => {
                       </span>
                     </td>
                     <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
-                      <button
-                        onClick={() => navigate(`/entries/${entry.id}/edit`)}
-                        className="text-brand-600 hover:text-brand-900 mr-3 transition-colors duration-150"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={() => {
-                          setEntryToDelete(entry);
-                          setShowDeleteModal(true);
-                        }}
-                        className="text-red-600 hover:text-red-900 transition-colors duration-150"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                      {entry.transfer_group_id ? (
+                        <button
+                          onClick={() => navigate(`/transfers/${entry.transfer_group_id}/edit`)}
+                          className="text-brand-600 hover:text-brand-900 transition-colors duration-150"
+                        >
+                          Edit Transfer
+                        </button>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => navigate(`/entries/${entry.id}/edit`)}
+                            className="text-brand-600 hover:text-brand-900 mr-3 transition-colors duration-150"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              setEntryToDelete(entry);
+                              setShowDeleteModal(true);
+                            }}
+                            className="text-red-600 hover:text-red-900 transition-colors duration-150"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </>
+                      )}
                     </td>
                   </tr>
                 ))}

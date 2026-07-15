@@ -1,5 +1,109 @@
 const supabase = require('./client');
 
+// Transfer queries
+const createTransfer = async (payload) => {
+  const { data, error } = await supabase
+    .rpc('create_transfer', {
+      p_from_account_id: payload.from_account_id,
+      p_to_account_id: payload.to_account_id,
+      p_amount: payload.amount,
+      p_note: payload.note,
+      p_date: payload.date
+    });
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
+};
+
+const updateTransfer = async (payload) => {
+  const { data, error } = await supabase
+    .rpc('update_transfer', {
+      p_transfer_group_id: payload.transfer_group_id,
+      p_from_account_id: payload.from_account_id,
+      p_to_account_id: payload.to_account_id,
+      p_amount: payload.amount,
+      p_note: payload.note,
+      p_date: payload.date
+    });
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
+};
+
+const deleteTransfer = async (transferGroupId) => {
+  const { data, error } = await supabase
+    .rpc('delete_transfer', {
+      p_transfer_group_id: transferGroupId
+    });
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
+};
+
+const getTransferByGroupId = async (transferGroupId) => {
+  const { data, error } = await supabase
+    .from('entries')
+    .select(`
+      id, type, amount, note, date, created_at, updated_at,
+      account_id,
+      category_id,
+      transfer_group_id,
+      account:accounts(id, name, type, emoji),
+      category:categories(id, name, type, color, icon)
+    `)
+    .eq('transfer_group_id', transferGroupId)
+    .is('deleted_at', null)
+    .order('type', { ascending: false }); // expense first, then income
+
+  if (error) {
+    throw error;
+  }
+
+  if (data.length === 0) {
+    return null;
+  }
+
+  // Separate the entries
+  const fromEntry = data.find(entry => entry.type === 'expense');
+  const toEntry = data.find(entry => entry.type === 'income');
+
+  // Flatten the response
+  const flattenEntry = (entry) => ({
+    id: entry.id,
+    type: entry.type,
+    amount: entry.amount,
+    note: entry.note,
+    date: entry.date,
+    created_at: entry.created_at,
+    updated_at: entry.updated_at,
+    account_id: entry.account_id,
+    category_id: entry.category_id,
+    transfer_group_id: entry.transfer_group_id, // Add transfer_group_id
+    account_name: entry.account.name,
+    account_type: entry.account.type,
+    account_emoji: entry.account.emoji,
+    category_name: entry.category.name,
+    category_type: entry.category.type,
+    category_color: entry.category.color,
+    category_icon: entry.category.icon
+  });
+
+  return {
+    transfer_group_id: transferGroupId,
+    from_entry: fromEntry ? flattenEntry(fromEntry) : null,
+    to_entry: toEntry ? flattenEntry(toEntry) : null
+  };
+};
+
 // Account queries
 const getAccounts = async (sort = 'name', order = 'ASC') => {
   let query = supabase
@@ -404,7 +508,8 @@ const getEntries = async (filters = {}) => {
     .select(`
       id, type, amount, note, date, created_at, updated_at,
       account:accounts(id, name, type, emoji),
-      category:categories(id, name, type, color, icon)
+      category:categories(id, name, type, color, icon),
+      transfer_group_id
     `)
     .is('deleted_at', null);  // Add deleted_at filter for soft-delete
 
@@ -484,6 +589,7 @@ const getEntryById = async (id) => {
       id, type, amount, note, date, created_at, updated_at,
       account_id,
       category_id,
+      transfer_group_id,
       account:accounts(id, name, type, emoji),
       category:categories(id, name, type, color, icon)
     `)
@@ -510,6 +616,7 @@ const getEntryById = async (id) => {
     updated_at: data.updated_at,
     account_id: data.account_id,
     category_id: data.category_id,
+    transfer_group_id: data.transfer_group_id, // Add transfer_group_id
     account_name: data.account.name,
     account_type: data.account.type,
     account_emoji: data.account.emoji,
@@ -536,7 +643,8 @@ const createEntry = async (entry) => {
     .select(`
       id, type, amount, note, date, created_at, updated_at,
       account:accounts(id, name, type, emoji),
-      category:categories(id, name, type, color, icon)
+      category:categories(id, name, type, color, icon),
+      transfer_group_id
     `)
     .single();
 
@@ -583,7 +691,8 @@ const updateEntry = async (id, entry) => {
     .select(`
       id, type, amount, note, date, created_at, updated_at,
       account:accounts(id, name, type, emoji),
-      category:categories(id, name, type, color, icon)
+      category:categories(id, name, type, color, icon),
+      transfer_group_id
     `)
     .single();
 
@@ -602,6 +711,7 @@ const updateEntry = async (id, entry) => {
     updated_at: data.updated_at,
     account_id: data.account.id,
     category_id: data.category.id,
+    transfer_group_id: data.transfer_group_id, // Add transfer_group_id
     account_name: data.account.name,
     account_type: data.account.type,
     account_emoji: data.account.emoji,
@@ -630,18 +740,55 @@ const deleteEntry = async (id) => {
 
 // New function for entries
 const bulkDeleteEntries = async (ids) => {
-  const { data, error } = await supabase
+  const { data: entriesData, error: entriesError } = await supabase
+    .from('entries')
+    .select('id, transfer_group_id')
+    .in('id', ids)
+    .is('deleted_at', null);  // Only get non-deleted entries
+
+  if (entriesError) {
+    throw entriesError;
+  }
+
+  // Check if any of the entries are part of a transfer pair
+  // and add their paired entries to the list to delete
+  const allIdsToDelete = [...ids];
+  for (const entry of entriesData) {
+    if (entry.transfer_group_id) {
+      // Find the paired entry
+      const { data: pairedEntries, error: pairedError } = await supabase
+        .from('entries')
+        .select('id')
+        .eq('transfer_group_id', entry.transfer_group_id)
+        .not('id', 'eq', entry.id)
+        .is('deleted_at', null);
+
+      if (pairedError) {
+        throw pairedError;
+      }
+
+      // Add paired entry IDs to delete list
+      pairedEntries.forEach(pairedEntry => {
+        if (!allIdsToDelete.includes(pairedEntry.id)) {
+          allIdsToDelete.push(pairedEntry.id);
+        }
+      });
+    }
+  }
+
+  // Now delete all entries
+  const { data: deletedData, error: deleteError } = await supabase
     .from('entries')
     .update({ deleted_at: new Date().toISOString() })
-    .in('id', ids)
+    .in('id', allIdsToDelete)
     .is('deleted_at', null)  // Only update non-deleted entries
     .select();
 
-  if (error) {
-    throw error;
+  if (deleteError) {
+    throw deleteError;
   }
 
-  return { soft_deleted: data.length };
+  return { soft_deleted: deletedData.length };
 };
 
 // Export queries
@@ -651,7 +798,8 @@ const getEntriesForExport = async (from, to) => {
     .select(`
       id, type, amount, note, date, created_at, updated_at,
       account:accounts(name),
-      category:categories(name)
+      category:categories(name),
+      transfer_group_id
     `)
     .is('deleted_at', null);  // Add deleted_at filter for soft-delete
 
@@ -681,7 +829,8 @@ const getEntriesForExport = async (from, to) => {
     created_at: entry.created_at,
     updated_at: entry.updated_at,
     account_name: entry.account.name,
-    category_name: entry.category.name
+    category_name: entry.category.name,
+    transfer_group_id: entry.transfer_group_id // Add transfer_group_id
   }));
 };
 
@@ -721,13 +870,13 @@ const getDashboardKPIs = async (from, to) => {
     throw entriesError;
   }
 
-  // Calculate totals
+  // Calculate totals (excluding transfers)
   const totalIncome = entriesData
-    .filter(entry => entry.type === 'income')
+    .filter(entry => entry.type === 'income' && entry.transfer_group_id === null)
     .reduce((sum, entry) => sum + entry.amount, 0);
 
   const totalExpense = entriesData
-    .filter(entry => entry.type === 'expense')
+    .filter(entry => entry.type === 'expense' && entry.transfer_group_id === null)
     .reduce((sum, entry) => sum + entry.amount, 0);
 
   const net = totalIncome - totalExpense;
@@ -816,7 +965,7 @@ const getDashboardKPIs = async (from, to) => {
 const getDashboardMoM = async (from, to) => {
   let query = supabase
     .from('entries')
-    .select('date, type, amount')
+    .select('date, type, amount, transfer_group_id')
     .is('deleted_at', null);  // Add deleted_at filter for soft-delete
 
   if (from) {
@@ -837,6 +986,9 @@ const getDashboardMoM = async (from, to) => {
   const monthlyData = {};
 
   data.forEach(entry => {
+    // Skip transfer entries
+    if (entry.transfer_group_id !== null) return;
+    
     // Extract year-month from date
     const date = new Date(entry.date);
     const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
@@ -866,7 +1018,8 @@ const getExpenseBreakdown = async (from, to) => {
       category_id,
       categories(name, type, color, icon),
       type,
-      amount
+      amount,
+      transfer_group_id
     `)
     .eq('type', 'expense')
     .is('deleted_at', null);  // Add deleted_at filter for soft-delete
@@ -914,7 +1067,8 @@ const getIncomeBreakdown = async (from, to) => {
       category_id,
       categories(name, type, color, icon),
       type,
-      amount
+      amount,
+      transfer_group_id
     `)
     .eq('type', 'income')
     .is('deleted_at', null);  // Add deleted_at filter for soft-delete
@@ -962,7 +1116,8 @@ const getDashboardAccounts = async (from, to) => {
       account_id,
       accounts(name, type),
       type,
-      amount
+      amount,
+      transfer_group_id
     `)
     .is('deleted_at', null);  // Add deleted_at filter for soft-delete
 
@@ -984,6 +1139,9 @@ const getDashboardAccounts = async (from, to) => {
   const accountMap = {};
 
   data.forEach(entry => {
+    // Skip transfer entries
+    if (entry.transfer_group_id !== null) return;
+    
     const accountId = entry.account_id;
     if (!accountMap[accountId]) {
       accountMap[accountId] = {
@@ -1034,7 +1192,8 @@ const getRecentEntries = async (from, to, limit = 10) => {
     .select(`
       id, type, amount, note, date, created_at, updated_at,
       account:accounts(id, name, type, emoji),
-      category:categories(id, name, type, color, icon)
+      category:categories(id, name, type, color, icon),
+      transfer_group_id
     `)
     .is('deleted_at', null);  // Add deleted_at filter for soft-delete
 
@@ -1181,7 +1340,7 @@ const getRecycleBin = async (filters = {}) => {
   let entriesQuery = supabase
     .from('entries')
     .select(`
-      id, type, amount, note, date, deleted_at,
+      id, type, amount, note, date, deleted_at, transfer_group_id,
       account:accounts(name),
       category:categories(name, type, color, icon)
     `)
@@ -1222,6 +1381,7 @@ const getRecycleBin = async (filters = {}) => {
     account_name: entry.account?.name || 'Unknown Account',
     date: entry.date,
     deleted_at: entry.deleted_at,
+    transfer_group_id: entry.transfer_group_id, // Add transfer_group_id
     days_remaining: Math.max(0, 30 - Math.floor((new Date() - new Date(entry.deleted_at)) / (1000 * 60 * 60 * 24)))
   }));
 
@@ -1262,7 +1422,7 @@ const restoreItem = async (type, id) => {
   } else if (type === 'entries') {
     const { data, error } = await supabase
       .from('entries')
-      .select('deleted_at')
+      .select('deleted_at, transfer_group_id')
       .eq('id', id)
       .not('deleted_at', 'is', null)
       .single();
@@ -1289,8 +1449,24 @@ const restoreItem = async (type, id) => {
     throw updateError;
   }
 
-  // For accounts, also restore entries that were deleted at the same time (within 1 second)
+  // For entries that are part of a transfer pair, also restore the paired row
   let entriesRestored = 0;
+  if (type === 'entries' && item.transfer_group_id) {
+    // Find and restore the paired entry
+    const { error: restorePairedError } = await supabase
+      .from('entries')
+      .update({ deleted_at: null })
+      .eq('transfer_group_id', item.transfer_group_id)
+      .not('id', 'eq', id);
+
+    if (restorePairedError) {
+      throw restorePairedError;
+    }
+    
+    entriesRestored = 1; // One paired entry restored
+  }
+  
+  // For accounts, also restore entries that were deleted at the same time (within 1 second)
   if (type === 'accounts') {
     const accountDeletedAt = new Date(item.deleted_at);
     const timeWindowStart = new Date(accountDeletedAt.getTime() - 1000); // 1 second before
@@ -1363,6 +1539,12 @@ const purgeExpired = async () => {
 };
 
 module.exports = {
+  // Transfer queries
+  createTransfer,
+  updateTransfer,
+  deleteTransfer,
+  getTransferByGroupId,
+
   // Account queries
   getAccounts,
   getAccountById,

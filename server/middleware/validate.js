@@ -44,6 +44,16 @@ const updateEntrySchema = z.object({
   }),
 });
 
+const createTransferSchema = z.object({
+  body: z.object({
+    from_account_id: z.number().int().positive(),
+    to_account_id: z.number().int().positive(),
+    amount: z.number().positive(),
+    note: z.string().max(500).optional(),
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  }),
+});
+
 const bulkDeleteEntriesSchema = z.object({
   body: z.object({
     ids: z.array(z.number().int().positive()),
@@ -54,5 +64,6 @@ module.exports = {
   validate,
   createEntrySchema,
   updateEntrySchema,
+  createTransferSchema,
   bulkDeleteEntriesSchema
 };
