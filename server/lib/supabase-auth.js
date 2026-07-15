@@ -20,8 +20,15 @@
 // Rewritten to use `jose`'s JWKS-based ES256 verification, which is what
 // Supabase's own docs recommend for this signing model.
 
-const { createRemoteJWKSet, jwtVerify } = require('jose');
-
+// `jose` v6 ships ESM-only (package.json "type": "module", no CJS "require"
+// export condition at all) — a bare `require('jose')` throws ERR_REQUIRE_ESM
+// on any Node runtime that doesn't support synchronous require-of-ESM
+// (stable only since Node 22.12). Vercel's serverless Node runtime doesn't
+// support it, which crashed the whole function (FUNCTION_INVOCATION_FAILED)
+// even though a local Node 22 boot test passed and masked the problem.
+// Dynamic import() works from a CommonJS file on any supported Node
+// version, so the module and its JWKS client are lazily initialized on
+// first use instead of required at module-load time.
 const SUPABASE_URL = process.env.SUPABASE_URL;
 
 if (!SUPABASE_URL) {
@@ -31,7 +38,25 @@ if (!SUPABASE_URL) {
 // Supabase JWTs have iss = '<project_url>/auth/v1', NOT the bare project
 // URL — same issuer format used for both the JWKS endpoint and validation.
 const ISSUER = `${SUPABASE_URL}/auth/v1`;
-const JWKS = createRemoteJWKSet(new URL(`${ISSUER}/.well-known/jwks.json`));
+
+let josePromise = null;
+let jwksPromise = null;
+
+function loadJose() {
+    if (!josePromise) {
+        josePromise = import('jose');
+    }
+    return josePromise;
+}
+
+async function getJWKS() {
+    if (!jwksPromise) {
+        jwksPromise = loadJose().then(({ createRemoteJWKSet }) =>
+            createRemoteJWKSet(new URL(`${ISSUER}/.well-known/jwks.json`))
+        );
+    }
+    return jwksPromise;
+}
 
 /**
  * Verify a Supabase-issued JWT and return the user payload.
@@ -44,6 +69,8 @@ const JWKS = createRemoteJWKSet(new URL(`${ISSUER}/.well-known/jwks.json`));
 async function verifyToken(token) {
     let payload;
     try {
+        const { jwtVerify } = await loadJose();
+        const JWKS = await getJWKS();
         ({ payload } = await jwtVerify(token, JWKS, {
             issuer: ISSUER,
         }));
