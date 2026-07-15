@@ -18,10 +18,10 @@ const authMiddleware = async (req, res, next) => {
             });
         }
 
-        // Verify the JWT locally (no network call)
+        // Verify the JWT against Supabase's JWKS (cached after first fetch per instance)
         let user;
         try {
-            user = verifyToken(token);
+            user = await verifyToken(token);
         } catch (verifyErr) {
             // Map distinguishable error codes to HTTP responses (FR-A7)
             const code = verifyErr.code || 'TOKEN_TAMPERED';
