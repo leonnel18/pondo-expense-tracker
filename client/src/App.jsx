@@ -8,6 +8,7 @@ import Entries from './pages/Entries';
 import Accounts from './pages/Accounts';
 import Categories from './pages/Categories';
 import Budgets from './pages/Budgets';
+import Recurrences from './pages/Recurrences';
 import Export from './pages/Export';
 import AddEntry from './pages/AddEntry';
 import EditEntry from './pages/EditEntry';
@@ -53,6 +54,7 @@ function App() {
             <Route path="accounts/:id/edit" element={<EditAccount />} />
             <Route path="categories" element={<Categories />} />
             <Route path="budgets" element={<Budgets />} />
+            <Route path="recurrences" element={<Recurrences />} />
             <Route path="export" element={<Export />} />
             <Route path="recycle-bin" element={<RecycleBin />} />
             <Route path="transfers/new" element={<AddTransfer />} />

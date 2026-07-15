@@ -19,6 +19,7 @@ const authRouter = require('./routes/auth'); // new auth router
 const recycleBinRouter = require('./routes/recycle-bin'); // recycle bin router
 const transfersRouter = require('./routes/transfers'); // transfers router
 const budgetsRouter = require('./routes/budgets'); // budgets router (US-17)
+const recurrencesRouter = require('./routes/recurrences'); // recurrences router (US-16)
 
 // Create Express app
 const app = express();
@@ -39,8 +40,14 @@ app.use('/api/auth', authRouter);
 
 // Apply auth middleware to all OTHER API routes
 app.use('/api', (req, res, next) => {
-  // Skip auth for /api/auth/*, /api/health, and /api/recycle-bin/purge
-  if (req.path.startsWith('/auth') || req.path === '/health' || req.path === '/recycle-bin/purge') {
+  // Skip auth for /api/auth/*, /api/health, and the cron-triggered,
+  // API-key-gated endpoints (/api/recycle-bin/purge, /api/recurrences/process)
+  if (
+    req.path.startsWith('/auth') ||
+    req.path === '/health' ||
+    req.path === '/recycle-bin/purge' ||
+    req.path === '/recurrences/process'
+  ) {
     return next();
   }
   authMiddleware(req, res, next);
@@ -57,6 +64,7 @@ app.use('/api/transfers', transfersRouter); // Add transfers router
 app.use('/api/budgets', budgetsRouter); // Budgets CRUD (US-17)
 // Dashboard budgets enrichment — mounted separately per design §5.2
 app.get('/api/dashboard/budgets', budgetsRouter.dashboardBudgetsHandler);
+app.use('/api/recurrences', recurrencesRouter); // Recurring transactions (US-16)
 app.use('/api', systemRouter);
 
 // Error handling middleware (must be last)

@@ -109,6 +109,83 @@ const updateBudgetSchema = z.object({
   }),
 });
 
+// Recurrence schemas (US-16, design §5)
+const createRecurrenceSchema = z.object({
+  body: z.object({
+    account_id: z.number().int().positive(),
+    category_id: z.number().int().positive(),
+    type: z.enum(['income', 'expense']),
+    amount: z.number().positive(),
+    note: z.string().max(500).optional(),
+    mode: z.enum(['repeat', 'installment', 'subscription']),
+    cycle: z.enum(['weekly', 'monthly']),
+    start_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    end_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+    occurrences_total: z.number().int().positive().optional(),
+    auto_post: z.boolean().optional().default(true),
+  }).superRefine((data, ctx) => {
+    if (data.mode === 'installment' && !data.occurrences_total) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'occurrences_total is required when mode is "installment"',
+        path: ['occurrences_total'],
+      });
+    }
+    if (data.mode !== 'installment' && data.occurrences_total !== undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'occurrences_total must not be set unless mode is "installment"',
+        path: ['occurrences_total'],
+      });
+    }
+    if (data.mode !== 'subscription' && data.end_date !== undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'end_date must not be set directly unless mode is "subscription" (installment end_date is derived)',
+        path: ['end_date'],
+      });
+    }
+  }),
+});
+
+const updateRecurrenceSchema = z.object({
+  body: z.object({
+    account_id: z.number().int().positive().optional(),
+    category_id: z.number().int().positive().optional(),
+    type: z.enum(['income', 'expense']).optional(),
+    amount: z.number().positive().optional(),
+    note: z.string().max(500).optional(),
+    mode: z.enum(['repeat', 'installment', 'subscription']).optional(),
+    cycle: z.enum(['weekly', 'monthly']).optional(),
+    start_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+    end_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
+    occurrences_total: z.number().int().positive().optional(),
+    auto_post: z.boolean().optional(),
+  }).superRefine((data, ctx) => {
+    if (data.mode === 'installment' && data.occurrences_total === undefined) {
+      // Allowed: an existing installment being edited without changing occurrences_total.
+      // The route merges with the existing row before persisting (same pattern as budgets' PUT).
+    }
+    if (data.mode && data.mode !== 'installment' && data.occurrences_total !== undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'occurrences_total must not be set unless mode is "installment"',
+        path: ['occurrences_total'],
+      });
+    }
+    if (data.mode && data.mode !== 'subscription' && data.end_date !== undefined && data.end_date !== null) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'end_date must not be set directly unless mode is "subscription"',
+        path: ['end_date'],
+      });
+    }
+  }),
+  params: z.object({
+    id: z.string().regex(/^\d+$/),
+  }),
+});
+
 module.exports = {
   validate,
   createEntrySchema,
@@ -117,4 +194,6 @@ module.exports = {
   bulkDeleteEntriesSchema,
   createBudgetSchema,
   updateBudgetSchema,
+  createRecurrenceSchema,
+  updateRecurrenceSchema,
 };

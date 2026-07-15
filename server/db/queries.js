@@ -627,9 +627,18 @@ const getEntryById = async (id) => {
   };
 };
 
-const createEntry = async (entry) => {
+// `internal.recurrenceId`, if present, links the created entry back to the
+// recurrence that generated it. This is NOT part of the public `entry`
+// payload shape — it's a second argument only the recurrence cron sweep
+// (processRecurrences) and the recurrence confirm route pass, so a client
+// POSTing to /api/entries can never forge a recurrence_id onto an entry by
+// including it in the request body (same reasoning as transfer_group_id,
+// which is likewise only ever set by the transfer RPC functions, never by
+// createEntry's caller-supplied `entry` object).
+const createEntry = async (entry, internal = {}) => {
   const { type, amount, account_id, category_id, note, date } = entry;
-  
+  const { recurrenceId } = internal;
+
   const { data, error } = await supabase
     .from('entries')
     .insert({
@@ -638,13 +647,14 @@ const createEntry = async (entry) => {
       account_id,
       category_id,
       note: note || null,
-      date
+      date,
+      recurrence_id: recurrenceId || null
     })
     .select(`
       id, type, amount, note, date, created_at, updated_at,
       account:accounts(id, name, type, emoji),
       category:categories(id, name, type, color, icon),
-      transfer_group_id
+      transfer_group_id, recurrence_id
     `)
     .single();
 
@@ -669,7 +679,8 @@ const createEntry = async (entry) => {
     category_name: data.category.name,
     category_type: data.category.type,
     category_color: data.category.color,
-    category_icon: data.category.icon
+    category_icon: data.category.icon,
+    recurrence_id: data.recurrence_id
   };
 };
 
@@ -1748,6 +1759,343 @@ const getBudgetsWithCategories = async () => {
   return getBudgets();
 };
 
+// ── Recurrence queries (US-16, v2.3) ────────────────────────────────────────
+const { computeNextDueDate, computeInstallmentEndDate } = require('../lib/recurrence-cycle');
+
+const RECURRENCE_SELECT = `
+  id, account_id, category_id, type, amount, note, mode, cycle,
+  start_date, end_date, occurrences_total, occurrences_completed,
+  auto_post, next_due_date, pending_confirmation, pending_due_date, archived_at,
+  created_at, updated_at,
+  account:accounts(id, name, type, emoji),
+  category:categories(id, name, type, color, icon)
+`;
+
+const flattenRecurrence = (r) => ({
+  id: r.id,
+  account_id: r.account_id,
+  category_id: r.category_id,
+  account_name: r.account?.name || null,
+  account_emoji: r.account?.emoji || null,
+  category_name: r.category?.name || null,
+  category_color: r.category?.color || null,
+  category_icon: r.category?.icon || null,
+  type: r.type,
+  amount: r.amount,
+  note: r.note,
+  mode: r.mode,
+  cycle: r.cycle,
+  start_date: r.start_date,
+  end_date: r.end_date,
+  occurrences_total: r.occurrences_total,
+  occurrences_completed: r.occurrences_completed,
+  auto_post: r.auto_post,
+  next_due_date: r.next_due_date,
+  pending_confirmation: r.pending_confirmation,
+  pending_due_date: r.pending_due_date,
+  archived_at: r.archived_at,
+  created_at: r.created_at,
+  updated_at: r.updated_at,
+});
+
+const getRecurrences = async (filters = {}) => {
+  let query = supabase.from('recurrences').select(RECURRENCE_SELECT);
+
+  if (filters.archived === true) {
+    query = query.not('archived_at', 'is', null);
+  } else if (filters.archived !== 'all') {
+    // Default: active only
+    query = query.is('archived_at', null);
+  }
+
+  const { data, error } = await query.order('next_due_date', { ascending: true });
+  if (error) throw error;
+  return data.map(flattenRecurrence);
+};
+
+const getRecurrenceById = async (id) => {
+  const { data, error } = await supabase
+    .from('recurrences')
+    .select(RECURRENCE_SELECT)
+    .eq('id', id)
+    .single();
+
+  if (error) {
+    if (error.code === 'PGRST116') return null;
+    throw error;
+  }
+  return flattenRecurrence(data);
+};
+
+const createRecurrence = async (payload) => {
+  const {
+    account_id, category_id, type, amount, note, mode, cycle,
+    start_date, end_date, occurrences_total, auto_post,
+  } = payload;
+
+  const insert = {
+    account_id, category_id, type, amount,
+    note: note || null,
+    mode, cycle, start_date,
+    occurrences_total: mode === 'installment' ? occurrences_total : null,
+    occurrences_completed: 0,
+    auto_post: auto_post !== undefined ? auto_post : true,
+    next_due_date: start_date,
+    pending_confirmation: false,
+    pending_due_date: null,
+    end_date: mode === 'subscription' ? (end_date || null) : null,
+  };
+
+  if (mode === 'installment') {
+    insert.end_date = computeInstallmentEndDate({ cycle, start_date, occurrences_total });
+  }
+
+  const { data, error } = await supabase
+    .from('recurrences')
+    .insert(insert)
+    .select(RECURRENCE_SELECT)
+    .single();
+
+  if (error) throw error;
+  return flattenRecurrence(data);
+};
+
+const updateRecurrence = async (id, payload) => {
+  const existing = await getRecurrenceById(id);
+  if (!existing) return null;
+
+  const merged = { ...existing, ...payload };
+  const update = {
+    account_id: merged.account_id,
+    category_id: merged.category_id,
+    type: merged.type,
+    amount: merged.amount,
+    note: merged.note || null,
+    mode: merged.mode,
+    cycle: merged.cycle,
+    start_date: merged.start_date,
+    auto_post: merged.auto_post,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (merged.mode === 'installment') {
+    update.occurrences_total = merged.occurrences_total;
+    // Recompute end_date whenever occurrences_total (or start_date/cycle) may have changed
+    update.end_date = computeInstallmentEndDate({
+      cycle: merged.cycle, start_date: merged.start_date, occurrences_total: merged.occurrences_total,
+    });
+  } else {
+    update.occurrences_total = null;
+    update.end_date = merged.mode === 'subscription' ? (merged.end_date || null) : null;
+  }
+
+  const { data, error } = await supabase
+    .from('recurrences')
+    .update(update)
+    .eq('id', id)
+    .select(RECURRENCE_SELECT)
+    .single();
+
+  if (error) throw error;
+  return flattenRecurrence(data);
+};
+
+const deleteRecurrence = async (id) => {
+  const { count, error: countError } = await supabase
+    .from('entries')
+    .select('id', { count: 'exact', head: true })
+    .eq('recurrence_id', id);
+
+  if (countError) throw countError;
+
+  if (count > 0) {
+    const err = new Error('Cannot delete a recurrence with posted entries — archive it instead.');
+    err.code = 'HAS_ENTRIES';
+    err.status = 409;
+    throw err;
+  }
+
+  const { data, error } = await supabase
+    .from('recurrences')
+    .delete()
+    .eq('id', id)
+    .select('id')
+    .maybeSingle();
+
+  if (error) throw error;
+  return data ? { id: data.id } : null;
+};
+
+const archiveRecurrence = async (id, extra = {}) => {
+  const { data, error } = await supabase
+    .from('recurrences')
+    .update({ ...extra, archived_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+    .eq('id', id)
+    .select(RECURRENCE_SELECT)
+    .maybeSingle();
+
+  if (error) throw error;
+  return data ? flattenRecurrence(data) : null;
+};
+
+const restoreRecurrence = async (id) => {
+  const existing = await getRecurrenceById(id);
+  if (!existing) return null;
+
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+  if (existing.mode === 'installment' && existing.occurrences_completed >= existing.occurrences_total) {
+    const err = new Error('This installment is already complete — nothing left to restore.');
+    err.code = 'INSTALLMENT_COMPLETE';
+    err.status = 409;
+    throw err;
+  }
+  // Same reasoning as the installment case: a subscription whose end_date
+  // has already passed archived because it naturally ran its course, not
+  // because the user paused it — restoring it with a fresh next_due_date
+  // but a stale, already-past end_date would let it fire exactly one more
+  // entry before immediately re-archiving on the very next cron sweep.
+  if (existing.mode === 'subscription' && existing.end_date && existing.end_date < todayStr) {
+    const err = new Error('This subscription already ended — nothing left to restore.');
+    err.code = 'SUBSCRIPTION_ENDED';
+    err.status = 409;
+    throw err;
+  }
+
+  // Recompute next_due_date from today forward rather than resuming the
+  // stale frozen value — otherwise a long-paused recurrence would fire a
+  // burst of "overdue" postings on the next cron sweep.
+  const nextDue = computeNextDueDate({ cycle: existing.cycle, start_date: existing.start_date, next_due_date: todayStr });
+
+  const { data, error } = await supabase
+    .from('recurrences')
+    .update({ archived_at: null, next_due_date: nextDue, updated_at: new Date().toISOString() })
+    .eq('id', id)
+    .select(RECURRENCE_SELECT)
+    .single();
+
+  if (error) throw error;
+  return flattenRecurrence(data);
+};
+
+const getDueRecurrences = async () => {
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+  const { data, error } = await supabase
+    .from('recurrences')
+    .select(RECURRENCE_SELECT)
+    .is('archived_at', null)
+    .lte('next_due_date', todayStr);
+
+  if (error) throw error;
+  return data.map(flattenRecurrence);
+};
+
+// Intentionally does NOT filter on archived_at — a completed installment's
+// final occurrence can still be awaiting confirmation after the recurrence
+// itself has archived (see the note on advanceRecurrenceSchedule above).
+const getPendingConfirmationRecurrences = async () => {
+  const { data, error } = await supabase
+    .from('recurrences')
+    .select(RECURRENCE_SELECT)
+    .eq('pending_confirmation', true);
+
+  if (error) throw error;
+  return data.map(flattenRecurrence);
+};
+
+// Advances a due recurrence's schedule state (occurrence count / next_due_date
+// / archival). Does NOT create the entry — caller (processRecurrences /
+// confirmRecurrence) handles that separately.
+// NOTE: archival here must NOT touch pending_confirmation/pending_due_date —
+// this runs immediately after processRecurrences may have just set them for
+// the final occurrence (e.g. an installment's last payment, auto_post=false).
+// That final confirmation must still be resolvable after the recurrence
+// archives; clearing the flag here would silently drop it. See design §7.
+const advanceRecurrenceSchedule = async (r) => {
+  if (r.mode === 'installment') {
+    const completed = r.occurrences_completed + 1;
+    if (completed >= r.occurrences_total) {
+      return archiveRecurrence(r.id, { occurrences_completed: completed });
+    }
+    return updateRecurrenceInternal(r.id, {
+      occurrences_completed: completed,
+      next_due_date: computeNextDueDate(r),
+    });
+  }
+
+  if (r.mode === 'subscription' && r.end_date && r.next_due_date >= r.end_date) {
+    return archiveRecurrence(r.id, {});
+  }
+
+  return updateRecurrenceInternal(r.id, { next_due_date: computeNextDueDate(r) });
+};
+
+// Internal-only partial update, bypasses updateRecurrence's full-field merge
+// (used by the schedule-advancement path, which only ever touches a couple
+// of scheduling columns, not the whole recurrence shape).
+const updateRecurrenceInternal = async (id, fields) => {
+  const { data, error } = await supabase
+    .from('recurrences')
+    .update({ ...fields, updated_at: new Date().toISOString() })
+    .eq('id', id)
+    .select(RECURRENCE_SELECT)
+    .single();
+
+  if (error) throw error;
+  return flattenRecurrence(data);
+};
+
+// The cron-triggered sweep (POST /api/recurrences/process). For each due,
+// non-archived recurrence: auto-post creates the real entry immediately;
+// confirm-mode sets pending_confirmation instead. Either way, the schedule
+// (next_due_date / occurrences_completed / archival) advances immediately —
+// it does not wait for user confirmation (see design §4.2 rationale).
+const processRecurrences = async () => {
+  const due = await getDueRecurrences();
+  let posted = 0;
+  let pendingConfirm = 0;
+
+  for (const r of due) {
+    if (r.auto_post) {
+      await createEntry(
+        { type: r.type, amount: r.amount, account_id: r.account_id, category_id: r.category_id, note: r.note, date: r.next_due_date },
+        { recurrenceId: r.id }
+      );
+      posted += 1;
+      await advanceRecurrenceSchedule(r);
+    } else {
+      await updateRecurrenceInternal(r.id, { pending_confirmation: true, pending_due_date: r.next_due_date });
+      pendingConfirm += 1;
+      await advanceRecurrenceSchedule(r);
+    }
+  }
+
+  return { posted, pendingConfirm };
+};
+
+// POST /api/recurrences/:id/confirm — posts a real entry for a pending
+// (auto_post = false) recurrence and clears pending_confirmation.
+const confirmRecurrence = async (id) => {
+  const r = await getRecurrenceById(id);
+  if (!r) return null;
+  if (!r.pending_confirmation) {
+    const err = new Error('This recurrence has no pending confirmation.');
+    err.code = 'NOT_PENDING';
+    err.status = 409;
+    throw err;
+  }
+
+  const entry = await createEntry(
+    { type: r.type, amount: r.amount, account_id: r.account_id, category_id: r.category_id, note: r.note, date: r.pending_due_date },
+    { recurrenceId: r.id }
+  );
+  await updateRecurrenceInternal(r.id, { pending_confirmation: false, pending_due_date: null });
+  return entry;
+};
+
 module.exports = {
   // Transfer queries
   createTransfer,
@@ -1811,5 +2159,18 @@ module.exports = {
   // Recycle Bin functions
   getRecycleBin,
   restoreItem,
-  purgeExpired
+  purgeExpired,
+
+  // Recurrence queries (US-16, v2.3)
+  getRecurrences,
+  getRecurrenceById,
+  createRecurrence,
+  updateRecurrence,
+  deleteRecurrence,
+  archiveRecurrence,
+  restoreRecurrence,
+  getDueRecurrences,
+  getPendingConfirmationRecurrences,
+  processRecurrences,
+  confirmRecurrence
 };

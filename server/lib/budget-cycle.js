@@ -8,6 +8,8 @@
  *   getCurrentCycle(budgetRow) → { start: 'YYYY-MM-DD', end: 'YYYY-MM-DD' }
  */
 
+const { shiftMonth, clampToMonth } = require('./date-utils');
+
 /**
  * Format a Date as YYYY-MM-DD (local date, no time component).
  */
@@ -16,27 +18,6 @@ function fmt(date) {
   const m = String(date.getMonth() + 1).padStart(2, '0');
   const d = String(date.getDate()).padStart(2, '0');
   return `${y}-${m}-${d}`;
-}
-
-/**
- * Add N months to a date, clamping the day-of-month if needed.
- * Standard JS setMonth behavior: if anchor day 31 in April, clamps to April 30.
- */
-function addMonths(date, n) {
-  const d = new Date(date);
-  d.setMonth(d.getMonth() + n);
-  return d;
-}
-
-/**
- * Construct a date for (year, monthIndex, day), clamping `day` to the last
- * real day of that month instead of letting it overflow into the next month
- * (the native `new Date(year, monthIndex, day)` constructor overflows, it
- * does not clamp).
- */
-function clampToMonth(year, monthIndex, day) {
-  const lastDayOfMonth = new Date(year, monthIndex + 1, 0).getDate();
-  return new Date(year, monthIndex, Math.min(day, lastDayOfMonth));
 }
 
 /**
@@ -82,15 +63,28 @@ function getCurrentCycle(budget) {
 
     let start;
     if (candidate > today) {
-      // We haven't reached it yet — current cycle started last month
-      const prevMonthAnchor = addMonths(candidate, -1);
-      start = clampToMonth(prevMonthAnchor.getFullYear(), prevMonthAnchor.getMonth(), anchorDay);
+      // We haven't reached it yet — current cycle started last month.
+      // Uses shiftMonth (pure integer arithmetic) rather than addMonths on
+      // `candidate` directly: candidate's day-of-month can be 29/30/31, and
+      // shifting a Date object by -1 month with a day that doesn't exist in
+      // the target month silently overflows back into candidate's own
+      // month (e.g. Mar 31 shifted -1 month raw-Date-wise lands on Mar 3,
+      // not Feb) — clampToMonth can't correct that after the fact because
+      // by then the overflowed date's own .getMonth() already reports the
+      // wrong (original) month. shiftMonth never constructs an
+      // intermediate Date, so it can't inherit that overflow.
+      const prev = shiftMonth(today.getFullYear(), today.getMonth(), -1);
+      start = clampToMonth(prev.year, prev.monthIndex, anchorDay);
     } else {
       start = candidate;
     }
 
-    // End = one month later minus 1 day
-    const end = new Date(addMonths(start, 1).getTime() - 24 * 60 * 60 * 1000);
+    // End = one day before the *next* cycle's start (mirrors how `start`
+    // itself is derived — via shiftMonth + clampToMonth, not addMonths on
+    // `start`, for the same overflow reason as above).
+    const next = shiftMonth(start.getFullYear(), start.getMonth(), 1);
+    const nextStart = clampToMonth(next.year, next.monthIndex, anchorDay);
+    const end = new Date(nextStart.getTime() - 24 * 60 * 60 * 1000);
     return { start: fmt(start), end: fmt(end) };
   }
 

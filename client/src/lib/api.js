@@ -290,3 +290,18 @@ export const createBudget = (data) => apiRequest('/budgets', { method: 'POST', b
 export const updateBudget = (id, data) => apiRequest(`/budgets/${id}`, { method: 'PUT', body: JSON.stringify(data) });
 export const deleteBudget = (id) => apiRequest(`/budgets/${id}`, { method: 'DELETE' });
 export const getDashboardBudgets = () => apiRequest('/dashboard/budgets');
+
+// Recurrence API
+export const getRecurrences = (archived) => {
+  const params = new URLSearchParams();
+  if (archived) params.append('archived', 'true');
+  return apiRequest(`/recurrences?${params}`);
+};
+export const getRecurrence = (id) => apiRequest(`/recurrences/${id}`);
+export const createRecurrence = (data) => apiRequest('/recurrences', { method: 'POST', body: JSON.stringify(data) });
+export const updateRecurrence = (id, data) => apiRequest(`/recurrences/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+export const deleteRecurrence = (id) => apiRequest(`/recurrences/${id}`, { method: 'DELETE' });
+export const archiveRecurrence = (id) => apiRequest(`/recurrences/${id}/archive`, { method: 'POST' });
+export const restoreRecurrence = (id) => apiRequest(`/recurrences/${id}/restore`, { method: 'POST' });
+export const getDueRecurrences = () => apiRequest('/recurrences/due');
+export const confirmRecurrence = (id) => apiRequest(`/recurrences/${id}/confirm`, { method: 'POST' });

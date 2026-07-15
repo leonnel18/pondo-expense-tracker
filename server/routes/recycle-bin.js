@@ -73,29 +73,43 @@ router.post('/restore/:type/:id', async (req, res, next) => {
   }
 });
 
-// POST /api/recycle-bin/purge - Trigger permanent purge
-router.post('/purge', async (req, res, next) => {
+// GET+POST /api/recycle-bin/purge - Trigger permanent purge
+//
+// Fixed during the v2.3 build (found while wiring an equivalent cron
+// endpoint for recurrences): Vercel Cron Jobs only ever invoke via HTTP
+// GET, and can only send their own fixed `Authorization: Bearer
+// $CRON_SECRET` header (if CRON_SECRET is set on the Vercel project) —
+// they cannot send a custom X-API-Key header. This route was POST-only
+// and X-API-Key-only, meaning its own `vercel.json` cron entry could
+// never have actually authenticated successfully in production. Now
+// accepts GET (for the real cron trigger) and POST (for manual/API
+// runs), and either the existing X-API-Key/PURGE_API_KEY scheme or
+// Vercel's native Authorization: Bearer CRON_SECRET scheme.
+const purgeHandler = async (req, res, next) => {
   try {
-    // Check for API key in header
     const apiKey = req.get('X-API-Key');
-    const expectedApiKey = process.env.PURGE_API_KEY;
-    
-    // Validate API key
-    if (!apiKey || !expectedApiKey || apiKey !== expectedApiKey) {
+    const authHeader = req.get('Authorization');
+
+    const apiKeyValid = apiKey && process.env.PURGE_API_KEY && apiKey === process.env.PURGE_API_KEY;
+    const cronSecretValid = authHeader && process.env.CRON_SECRET && authHeader === `Bearer ${process.env.CRON_SECRET}`;
+
+    if (!apiKeyValid && !cronSecretValid) {
       return res.status(401).json({
         error: {
           code: 'UNAUTHORIZED',
-          message: 'Missing or invalid API key'
+          message: 'Missing or invalid credentials'
         }
       });
     }
-    
+
     // Run purge
     const result = await purgeExpired();
     res.json({ purged: result });
   } catch (error) {
     next(error);
   }
-});
+};
+router.get('/purge', purgeHandler);
+router.post('/purge', purgeHandler);
 
 module.exports = router;

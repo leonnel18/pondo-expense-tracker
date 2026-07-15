@@ -5,6 +5,7 @@ import BalanceHero from '../components/dashboard/BalanceHero';
 import QuickAdd from '../components/dashboard/QuickAdd';
 import AccountSummary from '../components/dashboard/AccountSummary';
 import BudgetCard from '../components/dashboard/BudgetCard';
+import RecurrenceConfirmCard from '../components/dashboard/RecurrenceConfirmCard';
 import RecentEntries from '../components/dashboard/RecentEntries';
 import FilterPanel from '../components/dashboard/FilterPanel';
 
@@ -109,6 +110,8 @@ const Dashboard = () => {
             </div>
             <AccountSummary accounts={dashboardData.accounts} />
           </div>
+
+          <RecurrenceConfirmCard />
 
           <BudgetCard />
         </div>

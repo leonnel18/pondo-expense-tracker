@@ -10,6 +10,7 @@
     "api/index.js": { "memory": 512, "maxDuration": 30 }
   },
   "crons": [
-    { "path": "/api/recycle-bin/purge", "schedule": "0 3 * * *" }
+    { "path": "/api/recycle-bin/purge", "schedule": "0 3 * * *" },
+    { "path": "/api/recurrences/process", "schedule": "0 6 * * *" }
   ]
 }
