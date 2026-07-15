@@ -286,3 +286,40 @@ One local commit (`8b6bd90`) on top of the auth work. Same DDL/push/deploy hold 
 
 - **v2.1: complete, independently verified (including one critical bug found and fixed that self-reports missed), committed locally.**
 - **Next:** proceed to v2.2 (US-15 transfers, US-17 budgets) per Gino's overnight authorization, same discipline (design → scoped implementation → independent review → fix → local commit, no production actions).
+
+## Session — v2.2 (US-15 transfers + US-17 budgets), overnight autonomous run continued (2026-07-15)
+
+Same standing authorization and no-push/no-deploy/no-production-DDL discipline as v2.1. `architect-pondo`'s first combined dispatch (transfers+budgets in one brief) failed twice — first burned 174 tool calls with zero writes, retry hit a genuine model idle timeout after 12 reads. Split into two narrower, parallel dispatches (distinct `--session-key`s to avoid session collision) — both succeeded cleanly on retry, producing `docs/v2.2-transfers-budgets/01-transfers-design.md` and `02-budgets-design.md`.
+
+### US-15 Transfers — design, build, verify, commit (complete)
+
+Paired-entry model: a transfer is two linked `entries` rows (expense on the source account, income on the destination) sharing a `transfer_group_id` UUID, deliberately chosen over a third `'transfer'` enum value to avoid touching the `entries` CHECK constraint. Three Postgres RPC functions (`create_transfer`/`update_transfer`/`delete_transfer`) handle the atomic paired writes, since Supabase's JS client has no client-side multi-statement transaction API.
+
+**Critical bug found and fixed:** `server/routes/transfers.js` imported `createTransferSchema` from an orphaned, pre-existing duplicate schema file (`server/zod/schemas/index.js` — dead code, same category as the already-known-dead `server/db/schema.js`) instead of the real schema in `server/middleware/validate.js`. The dead-code version lacks the `body: z.object({...})` wrapper the `validate()` middleware requires, which would have made **every transfer request fail with a 400, including fully valid ones** — a total feature outage on first use. Fixed by correcting the import and reverting dev-pondo's accidental edit to the dead-code file (confirmed via `git diff` it was pre-existing, not newly created).
+
+12 existing query functions across `queries.js` (dashboard KPIs, account balances, restore, bulk-delete, etc.) were patched per the design's exhaustive impact list and spot-verified correct — notably `getDashboardKPIs` correctly excludes transfers from `total_income`/`total_expense` while still letting them net into each account's own balance, and both `restoreItem`/`bulkDeleteEntries` correctly act on both halves of a transfer pair to avoid orphaning one side.
+
+Frontend: `AddTransfer.jsx`/`EditTransfer.jsx` (new pages), `Entries.jsx` updated to show a `⇄ Transfer` badge and single "Edit Transfer" action in place of per-row edit/delete for transfer rows, `App.jsx` routes, `api.js` exports — all reviewed and verified correct.
+
+Committed as `f52d752` (both design docs included, since `02-budgets-design.md` already existed in the working tree at commit time).
+
+### US-17 Budgets — design, backend build + verify + commit (complete); frontend in progress
+
+`docs/v2.2-transfers-budgets/02-budgets-design.md` — on-the-fly cycle-boundary calculation (weekly/monthly/custom) with no cron dependency, consistent with the v2.1 lesson that Vercel serverless has no persistent process for `setInterval`.
+
+**Model retirement mid-session:** `qwen3-coder:480b-cloud` (the `dev`/`devops` roles' assigned model) was retired by Ollama Cloud at exactly `2026-07-15 00:00:00 -0700 PDT`, discovered via a live 410 error mid-dispatch. Fixed by reassigning `dev`, `devops`, `dev-pondo`, `devops-pondo` to `ollama/deepseek-v4-pro:cloud` and restarting the gateway, then successfully redispatching.
+
+**Two critical bugs found and fixed** in the backend implementation:
+1. `server/lib/budget-cycle.js` — the monthly-cycle candidate date used `new Date(year, month, anchorDay)`, which silently overflows into the next month instead of clamping when `anchorDay` exceeds the month's real length (e.g. day 31 in April rolls to May 1). This made the cycle-start calculation land a full month too early for the entire month, for any budget anchored on a day past the 28th. Fixed with a new `clampToMonth()` helper, applied to both the candidate-date construction and the previous-month fallback.
+2. `server/routes/budgets.js` — `dashboardBudgetsHandler`'s zero-budgets early return called `res.json([])` from inside the async IIFE, but the outer `.then((result) => res.json(result))` would then call `res.json` a second time on the Express response object itself — **breaking the dashboard budgets endpoint for every user with zero budgets configured, i.e. everyone before their first budget.** Fixed by returning the plain value (`return [];`) and leaving the single outer `res.json` call as the only call site.
+
+Backend (migration `004_budgets.sql`, `budget-cycle.js`, `routes/budgets.js`, 6 new `queries.js` functions, `validate.js` Zod schemas with `superRefine` cycle_end conditional logic, `server.js` mounts) fully independently verified — all `module.exports` entries confirmed present, all imports resolve, `node --check` clean across all 4 touched JS files. Committed as `e3346c4`, not yet applied to production Supabase.
+
+Frontend (`BudgetProgressBar.jsx`, `BudgetCard.jsx` on the dashboard, `Budgets.jsx` management page, `api.js` exports, nav entry) dispatched to `dev-pondo` and independently verified clean on first pass — no defects found, a rarity this session (every other dev-pondo dispatch has produced at least one critical bug caught by direct review). All 7 files read in full, `npm run build` reproduced locally (1914 modules, clean), percent-threshold color logic hand-traced at all 4 boundaries, and the `id` vs `budget_id` field-name mismatch between the two budget-list endpoints (plain `getBudgets()` returns `id`, dashboard-enriched `getDashboardBudgets()` returns `budget_id`) confirmed used correctly in each of its two separate consumers. Committed as `6f0d46c`.
+
+### Status snapshot
+
+- **v2.2a (transfers): complete, verified, committed (`f52d752`).**
+- **v2.2b (budgets): complete, verified, committed (`e3346c4` backend, `6f0d46c` frontend).**
+- **v2.2: fully done.**
+- **Next:** v2.3 (US-16 recurring transactions — flagged in advance for the same Vercel-serverless-scheduler constraint as v2.1's purge job and v2.2's cycle math), v2.4 (US-18 CSV import), v2.5 (US-08 calendar view + US-14 tagging), per Gino's standing overnight authorization through v2.5. No push/deploy/production-DDL throughout.
