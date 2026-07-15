@@ -278,3 +278,15 @@ export const createTransfer = (data) => apiRequest('/transfers', { method: 'POST
 export const updateTransfer = (transferGroupId, data) => apiRequest(`/transfers/${transferGroupId}`, { method: 'PUT', body: JSON.stringify(data) });
 export const deleteTransfer = (transferGroupId) => apiRequest(`/transfers/${transferGroupId}`, { method: 'DELETE' });
 export const getTransfer = (transferGroupId) => apiRequest(`/transfers/${transferGroupId}`);
+
+// Budget API
+export const getBudgets = (categoryId) => {
+  const params = new URLSearchParams();
+  if (categoryId) params.append('category_id', categoryId);
+  return apiRequest(`/budgets?${params}`);
+};
+export const getBudget = (id) => apiRequest(`/budgets/${id}`);
+export const createBudget = (data) => apiRequest('/budgets', { method: 'POST', body: JSON.stringify(data) });
+export const updateBudget = (id, data) => apiRequest(`/budgets/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+export const deleteBudget = (id) => apiRequest(`/budgets/${id}`, { method: 'DELETE' });
+export const getDashboardBudgets = () => apiRequest('/dashboard/budgets');
