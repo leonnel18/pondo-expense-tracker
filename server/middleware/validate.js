@@ -60,10 +60,61 @@ const bulkDeleteEntriesSchema = z.object({
   }),
 });
 
+// Budget schemas (US-17, design §5.1)
+const createBudgetSchema = z.object({
+  body: z.object({
+    category_id: z.number().int().positive(),
+    amount: z.number().positive(),
+    cycle: z.enum(['weekly', 'monthly', 'custom']),
+    cycle_start: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    cycle_end: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+    reuse_next: z.boolean().optional().default(false),
+  }).superRefine((data, ctx) => {
+    if (data.cycle === 'custom' && !data.cycle_end) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'cycle_end is required when cycle is "custom"',
+        path: ['cycle_end'],
+      });
+    }
+    if (data.cycle !== 'custom' && data.cycle_end !== undefined && data.cycle_end !== null) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'cycle_end must not be set unless cycle is "custom"',
+        path: ['cycle_end'],
+      });
+    }
+  }),
+});
+
+const updateBudgetSchema = z.object({
+  body: z.object({
+    category_id: z.number().int().positive().optional(),
+    amount: z.number().positive().optional(),
+    cycle: z.enum(['weekly', 'monthly', 'custom']).optional(),
+    cycle_start: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+    cycle_end: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
+    reuse_next: z.boolean().optional(),
+  }).superRefine((data, ctx) => {
+    if (data.cycle && data.cycle !== 'custom' && data.cycle_end !== undefined && data.cycle_end !== null) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'cycle_end must not be set unless cycle is "custom"',
+        path: ['cycle_end'],
+      });
+    }
+  }),
+  params: z.object({
+    id: z.string().regex(/^\d+$/),
+  }),
+});
+
 module.exports = {
   validate,
   createEntrySchema,
   updateEntrySchema,
   createTransferSchema,
-  bulkDeleteEntriesSchema
+  bulkDeleteEntriesSchema,
+  createBudgetSchema,
+  updateBudgetSchema,
 };

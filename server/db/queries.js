@@ -1538,6 +1538,216 @@ const purgeExpired = async () => {
   };
 };
 
+// Budget queries
+const getBudgets = async (filters = {}) => {
+  let query = supabase
+    .from('budgets')
+    .select(`
+      id, category_id, amount, cycle, cycle_start, cycle_end,
+      reuse_next, created_at, updated_at,
+      category:categories(id, name, type, color, icon)
+    `);
+
+  if (filters.category_id) {
+    query = query.eq('category_id', filters.category_id);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    throw error;
+  }
+
+  return data.map(b => ({
+    id: b.id,
+    category_id: b.category_id,
+    category_name: b.category?.name || null,
+    category_color: b.category?.color || null,
+    category_icon: b.category?.icon || null,
+    amount: b.amount,
+    cycle: b.cycle,
+    cycle_start: b.cycle_start,
+    cycle_end: b.cycle_end,
+    reuse_next: b.reuse_next,
+    created_at: b.created_at,
+    updated_at: b.updated_at,
+  }));
+};
+
+const getBudgetById = async (id) => {
+  const { data, error } = await supabase
+    .from('budgets')
+    .select(`
+      id, category_id, amount, cycle, cycle_start, cycle_end,
+      reuse_next, created_at, updated_at,
+      category:categories(id, name, type, color, icon)
+    `)
+    .eq('id', id)
+    .single();
+
+  if (error) {
+    if (error.code === 'PGRST116') {
+      return null;
+    }
+    throw error;
+  }
+
+  return {
+    id: data.id,
+    category_id: data.category_id,
+    category_name: data.category?.name || null,
+    category_color: data.category?.color || null,
+    category_icon: data.category?.icon || null,
+    amount: data.amount,
+    cycle: data.cycle,
+    cycle_start: data.cycle_start,
+    cycle_end: data.cycle_end,
+    reuse_next: data.reuse_next,
+    created_at: data.created_at,
+    updated_at: data.updated_at,
+  };
+};
+
+const createBudget = async (payload) => {
+  const { category_id, amount, cycle, cycle_start, cycle_end, reuse_next } = payload;
+
+  // Check for duplicate category_id before insert (enforce one-budget-per-category at query layer)
+  const { data: existing, error: checkError } = await supabase
+    .from('budgets')
+    .select('id')
+    .eq('category_id', category_id)
+    .maybeSingle();
+
+  if (checkError) {
+    throw checkError;
+  }
+
+  if (existing) {
+    const err = new Error('A budget already exists for this category');
+    err.code = 'DUPLICATE_BUDGET';
+    err.status = 409;
+    throw err;
+  }
+
+  const { data, error } = await supabase
+    .from('budgets')
+    .insert({
+      category_id,
+      amount,
+      cycle,
+      cycle_start,
+      cycle_end: cycle_end || null,
+      reuse_next: reuse_next || false,
+    })
+    .select(`
+      id, category_id, amount, cycle, cycle_start, cycle_end,
+      reuse_next, created_at, updated_at,
+      category:categories(id, name, type, color, icon)
+    `)
+    .single();
+
+  if (error) {
+    // If the DB unique constraint fires (race condition), surface as DUPLICATE_BUDGET
+    if (error.code === '23505') {
+      const err = new Error('A budget already exists for this category');
+      err.code = 'DUPLICATE_BUDGET';
+      err.status = 409;
+      throw err;
+    }
+    throw error;
+  }
+
+  return {
+    id: data.id,
+    category_id: data.category_id,
+    category_name: data.category?.name || null,
+    category_color: data.category?.color || null,
+    category_icon: data.category?.icon || null,
+    amount: data.amount,
+    cycle: data.cycle,
+    cycle_start: data.cycle_start,
+    cycle_end: data.cycle_end,
+    reuse_next: data.reuse_next,
+    created_at: data.created_at,
+    updated_at: data.updated_at,
+  };
+};
+
+const updateBudget = async (id, payload) => {
+  const { category_id, amount, cycle, cycle_start, cycle_end, reuse_next } = payload;
+
+  const updateFields = { updated_at: new Date().toISOString() };
+  if (category_id !== undefined) updateFields.category_id = category_id;
+  if (amount !== undefined) updateFields.amount = amount;
+  if (cycle !== undefined) updateFields.cycle = cycle;
+  if (cycle_start !== undefined) updateFields.cycle_start = cycle_start;
+  if (cycle_end !== undefined) updateFields.cycle_end = cycle_end;
+  if (reuse_next !== undefined) updateFields.reuse_next = reuse_next;
+
+  const { data, error } = await supabase
+    .from('budgets')
+    .update(updateFields)
+    .eq('id', id)
+    .select(`
+      id, category_id, amount, cycle, cycle_start, cycle_end,
+      reuse_next, created_at, updated_at,
+      category:categories(id, name, type, color, icon)
+    `)
+    .single();
+
+  if (error) {
+    if (error.code === 'PGRST116') {
+      return null;
+    }
+    // If the DB unique constraint fires on category_id change
+    if (error.code === '23505') {
+      const err = new Error('A budget already exists for this category');
+      err.code = 'DUPLICATE_BUDGET';
+      err.status = 409;
+      throw err;
+    }
+    throw error;
+  }
+
+  return {
+    id: data.id,
+    category_id: data.category_id,
+    category_name: data.category?.name || null,
+    category_color: data.category?.color || null,
+    category_icon: data.category?.icon || null,
+    amount: data.amount,
+    cycle: data.cycle,
+    cycle_start: data.cycle_start,
+    cycle_end: data.cycle_end,
+    reuse_next: data.reuse_next,
+    created_at: data.created_at,
+    updated_at: data.updated_at,
+  };
+};
+
+const deleteBudget = async (id) => {
+  const { data, error } = await supabase
+    .from('budgets')
+    .delete()
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) {
+    if (error.code === 'PGRST116') {
+      return null;
+    }
+    throw error;
+  }
+
+  return { id: data.id };
+};
+
+// getBudgetsWithCategories — same as getBudgets but without filters, used by dashboard
+const getBudgetsWithCategories = async () => {
+  return getBudgets();
+};
+
 module.exports = {
   // Transfer queries
   createTransfer,
@@ -1583,6 +1793,14 @@ module.exports = {
   getIncomeBreakdown,
   getDashboardAccounts,
   getRecentEntries,
+
+  // Budget queries
+  getBudgets,
+  getBudgetById,
+  createBudget,
+  updateBudget,
+  deleteBudget,
+  getBudgetsWithCategories,
 
   // Settings queries
   getSetting,
