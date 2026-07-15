@@ -22,7 +22,12 @@ function verifyToken(token) {
     try {
         const payload = jwt.verify(token, JWT_SECRET, {
             algorithms: ['HS256'],
-            issuer: process.env.SUPABASE_URL,  // Supabase JWTs have iss = project URL
+            // Supabase JWTs have iss = '<project_url>/auth/v1', NOT the bare
+            // project URL — confirmed against Supabase's own JWT claims docs
+            // after this exact mismatch caused every token to fail
+            // verification as "tampered" in production (the bare-URL check
+            // below was the original, incorrect version).
+            issuer: `${process.env.SUPABASE_URL}/auth/v1`,
             // audience: 'authenticated' is the default Supabase aud, but we validate it below
         });
 
