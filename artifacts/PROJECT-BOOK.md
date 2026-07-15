@@ -246,3 +246,11 @@ Stray OpenClaw scaffolding (`AGENTS.md`/`SOUL.md`/etc.) and debug artifacts left
 ### 16.4 Next steps, in order
 
 Reconnect MCP → confirm the 3 env vars in Vercel → apply the DDL migration (already dry-run verified twice) → push `main` → monitor the resulting deployment.
+
+---
+
+## 17. v2.1 (recycle bin + mobile nav) built, verified, committed — overnight autonomous run (2026-07-15)
+
+Gino authorized DARKLING to proceed through the sprint backlog autonomously (v2.1–v2.5) while offline overnight, holding the same no-push/no-deploy/no-production-DDL line regardless. US-05 (soft-delete/recycle bin) and US-06 (mobile bottom nav) are built: 22-function query audit in `server/db/queries.js` (verified function-by-function), new `/api/recycle-bin/*` endpoints, Vercel Cron + lazy-purge fallback (a `setInterval` approach, as originally sized, would never fire on serverless), new client Recycle Bin page and shared nav module. One critical bug found by direct review (not caught by the implementation's own report or by a clean build): `Sidebar.jsx` referenced an unimported `Wallet` icon after the nav refactor, which would have crashed every page load — fixed directly. Committed locally (`8b6bd90`), same DDL/push/deploy hold as §16. Full detail in `artifacts/milestone-log.md`'s 2026-07-15 v2.1 session entry.
+
+**Next:** v2.2 (US-15 transfers, US-17 budgets), same discipline.

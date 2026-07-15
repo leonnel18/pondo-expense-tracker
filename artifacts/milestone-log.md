@@ -256,3 +256,33 @@ One local commit (`6feaa98`) covering both the v1.1 backfill and the v2.0 Sprint
 - **Current phase:** Auth implementation complete, defect-fixed, independently verified, committed locally. DDL migration NOT applied to production. Not pushed to GitHub. Not deployed.
 - **Blockers:** MCP reconnection (Supabase + Vercel) needed before either the migration apply or the push/deploy can proceed safely.
 - **Next steps, in order:** reconnect MCP → verify the 3 env vars are set in Vercel → apply migration → push to `main` (likely triggers deploy) → monitor the deployment.
+
+---
+
+## Session — v2.1 (US-05 recycle bin/soft-delete + US-06 mobile bottom nav), overnight autonomous run (2026-07-15)
+
+**Trigger:** Gino authorized DARKLING to proceed through the sprint backlog autonomously overnight (v2.1 through v2.5), via `dev-pondo`/`architect-pondo`/`qa-pondo`, with the same no-push/no-deploy/no-production-DDL boundary held regardless of the broadened authorization. This entry covers v2.1 only.
+
+### Architecture (`architect-pondo`, `ollama/deepseek-v4-pro:cloud`)
+
+`docs/v2.1-recycle-bin-mobile-nav/01-architecture-design.md` — resolved every ambiguity DARKLING flagged in the brief: 30-day retention window, an exhaustive 22-function audit of `server/db/queries.js` (every function that reads/writes `accounts`/`entries`, named individually with the exact required change), account-soft-delete-cascades-to-entries semantics, and the reassign/cascade delete flow's removal under soft-delete. Caught two things independently: Supabase's JS client doesn't propagate `deleted_at` filters through nested joins (meaning `getAccountBalance`/`getDashboardKPIs` need an extra JS-level filter beyond the query-level one, or soft-deleted entries would silently leak into balances), and that the sprint-backlog's own sizing note assumed a `setInterval` purge job — which cannot work on Vercel serverless (no persistent process between requests). Specified Vercel Cron + a lazy on-demand purge as a defense-in-depth fallback instead. This design doc survived a mid-session machine hang/crash intact (verified complete on recovery, not re-run).
+
+### Implementation — split into 3 scoped dev-pondo dispatches after the first attempt timed out
+
+A first, single broad dispatch covering all of §1.2–§2.4 timed out at ~9.5 minutes without completing (35 tool calls, one failed edit). Rather than retry the same broad scope, DARKLING checked what had actually landed: the entire 22-function query audit was done and independently verified correct (including both JS-level join-filter additions) — the run had simply run out of time before starting the remaining files. Split the rest into two further-scoped dispatches:
+
+- **Server-side remainder** (new `getRecycleBin`/`restoreItem`/`purgeExpired` query functions, `accounts.js`/`entries.js` DELETE rewrites, new `server/routes/recycle-bin.js`, `server.js` mount + auth-skip for the cron-only purge endpoint, `validate.js` cleanup) — reported as failed (exit 255, no completion payload — likely a gateway hiccup after the actual file writes had already succeeded), but direct inspection confirmed all 6 assigned files were correctly touched and syntactically valid. Only the `vercel.json` cron entry (item 7) was missed — added directly by DARKLING (one-line JSON addition).
+- **Client-side** (`navigation.js`, `BottomNav.jsx`, `RecycleBin.jsx`, `Sidebar.jsx`/`Layout.jsx`/`Header.jsx`/`App.jsx` wiring, `Accounts.jsx`/`Entries.jsx` delete-flow simplification, `api.js` exports) — completed with 3 logged tool-call failures (a failed `apply_patch` on `Accounts.jsx`, "no changes made" on `Entries.jsx` and `Sidebar.jsx`). Direct review found two of the three were harmless (the changes had already landed via a different tool call before the logged failure — `Accounts.jsx`'s modal removal and `Entries.jsx`'s confirm-message update were both correct on inspection), but the third was real: **`Sidebar.jsx` referenced an unimported `Wallet` icon after the refactor to the shared navigation module** — the old inline icon import had covered both the nav array and a standalone logo use, and only the former survived. This would have thrown `ReferenceError: Wallet is not defined` on every single page load (Sidebar renders inside Layout, which every route passes through) — not caught by any build step, since it's a runtime reference error, not a syntax one. Found by direct code read, fixed directly by DARKLING (added the missing `lucide-react` import).
+
+### Verification
+
+All 6 server-side files + `queries.js` passed `node --check`. Full client `npm run build` succeeded clean (1909 modules) both before and after the Sidebar.jsx fix — build success alone would not have caught that specific bug (undefined-variable JSX references aren't a build-time error), so the direct code read was load-bearing, not the green build.
+
+### Committed, not pushed
+
+One local commit (`8b6bd90`) on top of the auth work. Same DDL/push/deploy hold as before — the migration (`002_add_soft_delete_columns.sql`) is written but not applied; Supabase/Vercel MCP still need reconnecting first.
+
+### Status snapshot
+
+- **v2.1: complete, independently verified (including one critical bug found and fixed that self-reports missed), committed locally.**
+- **Next:** proceed to v2.2 (US-15 transfers, US-17 budgets) per Gino's overnight authorization, same discipline (design → scoped implementation → independent review → fix → local commit, no production actions).
