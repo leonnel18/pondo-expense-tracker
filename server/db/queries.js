@@ -501,17 +501,64 @@ const getFallbackCategory = async (type) => {
   return data;
 };
 
+// ── Tag helpers (US-14, v2.5) ──────────────────────────────────────────────
+// Flatten the nested entry_tags join into a simple tags array.
+// Used by getEntries, getEntryById, createEntry, updateEntry to attach tags.
+const flattenTags = (entryTags) => {
+  if (!entryTags || entryTags.length === 0) return [];
+  return entryTags.map(et => ({
+    id: et.tag_id || (et.tags && et.tags.id),
+    name: et.tags ? et.tags.name : et.name,
+  }));
+};
+
+// Insert entry_tags rows for a given entry ID. Used by createEntry and updateEntry.
+const insertEntryTags = async (entryId, tagIds) => {
+  if (!tagIds || tagIds.length === 0) return;
+  const rows = tagIds.map(tag_id => ({ entry_id: entryId, tag_id }));
+  const { error } = await supabase.from('entry_tags').insert(rows);
+  if (error) throw error;
+};
+
+// Delete all entry_tags for a given entry ID. Used by updateEntry (full replacement).
+const deleteEntryTags = async (entryId) => {
+  const { error } = await supabase.from('entry_tags').delete().eq('entry_id', entryId);
+  if (error) throw error;
+};
+
 // Entry queries
 const getEntries = async (filters = {}) => {
+  // If tag_id filter is present, resolve matching entry IDs at the query level
+  // (R3 mitigation: push tag filter into the DB query, not a post-fetch JS filter,
+  // to avoid returning fewer than per_page results when some entries on the
+  // page don't have the tag).
+  let tagFilteredIds = null;
+  if (filters.tag_id) {
+    const { data: tagRows, error: tagError } = await supabase
+      .from('entry_tags')
+      .select('entry_id')
+      .eq('tag_id', filters.tag_id);
+    if (tagError) throw tagError;
+    tagFilteredIds = tagRows.map(r => r.entry_id);
+    // If no entries have this tag, return empty immediately
+    if (tagFilteredIds.length === 0) return [];
+  }
+
   let query = supabase
     .from('entries')
     .select(`
       id, type, amount, note, date, created_at, updated_at,
       account:accounts(id, name, type, emoji),
       category:categories(id, name, type, color, icon),
-      transfer_group_id
+      transfer_group_id,
+      entry_tags(tag_id, tags(id, name))
     `)
     .is('deleted_at', null);  // Add deleted_at filter for soft-delete
+
+  // Apply tag_id filter at query level (R3 — not a post-fetch JS filter)
+  if (tagFilteredIds !== null) {
+    query = query.in('id', tagFilteredIds);
+  }
 
   // Apply filters
   if (filters.type) {
@@ -561,7 +608,7 @@ const getEntries = async (filters = {}) => {
     throw error;
   }
 
-  // Flatten the response to match the original SQLite API
+  // Flatten the response to match the original SQLite API, with tags array
   return data.map(entry => ({
     id: entry.id,
     type: entry.type,
@@ -578,7 +625,8 @@ const getEntries = async (filters = {}) => {
     category_name: entry.category.name,
     category_type: entry.category.type,
     category_color: entry.category.color,
-    category_icon: entry.category.icon
+    category_icon: entry.category.icon,
+    tags: flattenTags(entry.entry_tags)
   }));
 };
 
@@ -591,7 +639,8 @@ const getEntryById = async (id) => {
       category_id,
       transfer_group_id,
       account:accounts(id, name, type, emoji),
-      category:categories(id, name, type, color, icon)
+      category:categories(id, name, type, color, icon),
+      entry_tags(tag_id, tags(id, name))
     `)
     .eq('id', id)
     .is('deleted_at', null)  // Add deleted_at filter for soft-delete
@@ -623,7 +672,8 @@ const getEntryById = async (id) => {
     category_name: data.category.name,
     category_type: data.category.type,
     category_color: data.category.color,
-    category_icon: data.category.icon
+    category_icon: data.category.icon,
+    tags: flattenTags(data.entry_tags)
   };
 };
 
@@ -638,6 +688,10 @@ const getEntryById = async (id) => {
 const createEntry = async (entry, internal = {}) => {
   const { type, amount, account_id, category_id, note, date } = entry;
   const { recurrenceId } = internal;
+  // tagIds is optional — only present when the caller explicitly provides tags.
+  // It is NOT part of the `entry` payload shape (same reasoning as recurrenceId —
+  // the route extracts it from req.body separately and passes it via `internal`).
+  const tagIds = internal.tagIds; // array of tag IDs, or undefined if not provided
 
   const { data, error } = await supabase
     .from('entries')
@@ -662,6 +716,26 @@ const createEntry = async (entry, internal = {}) => {
     throw error;
   }
 
+  // Insert tag associations if tagIds was provided (even if empty — empty means
+  // "no tags to insert," which is a no-op, not an error).
+  // Note: tagIds being undefined means "don't touch tags" — but for createEntry
+  // there are no existing tags to preserve, so undefined and [] both result in
+  // no entry_tags rows being created. The distinction matters for updateEntry.
+  if (tagIds !== undefined && tagIds.length > 0) {
+    await insertEntryTags(data.id, tagIds);
+  }
+
+  // Fetch tags for the response (empty array if no tags were assigned)
+  let entryTags = [];
+  if (tagIds !== undefined && tagIds.length > 0) {
+    const { data: tagsData, error: tagsError } = await supabase
+      .from('entry_tags')
+      .select('tag_id, tags(id, name)')
+      .eq('entry_id', data.id);
+    if (tagsError) throw tagsError;
+    entryTags = flattenTags(tagsData);
+  }
+
   // Flatten the response to match the original SQLite API
   return {
     id: data.id,
@@ -680,12 +754,14 @@ const createEntry = async (entry, internal = {}) => {
     category_type: data.category.type,
     category_color: data.category.color,
     category_icon: data.category.icon,
-    recurrence_id: data.recurrence_id
+    recurrence_id: data.recurrence_id,
+    tags: entryTags
   };
 };
 
-const updateEntry = async (id, entry) => {
+const updateEntry = async (id, entry, internal = {}) => {
   const { type, amount, account_id, category_id, note, date } = entry;
+  const { tagIds } = internal; // optional array — undefined = don't touch tags
   
   const { data, error } = await supabase
     .from('entries')
@@ -711,6 +787,26 @@ const updateEntry = async (id, entry) => {
     throw error;
   }
 
+  // Full tag replacement: if tagIds is provided (including empty array),
+  // delete all existing entry_tags for this entry and insert the new set.
+  // tagIds === undefined means "don't touch tags" — leave existing associations.
+  // tagIds === [] means "clear all tags" — delete existing, insert nothing.
+  if (tagIds !== undefined) {
+    await deleteEntryTags(data.id);
+    if (tagIds.length > 0) {
+      await insertEntryTags(data.id, tagIds);
+    }
+  }
+
+  // Fetch current tags for the response
+  let entryTags = [];
+  const { data: tagsData, error: tagsError } = await supabase
+    .from('entry_tags')
+    .select('tag_id, tags(id, name)')
+    .eq('entry_id', data.id);
+  if (tagsError) throw tagsError;
+  entryTags = flattenTags(tagsData);
+
   // Flatten the response to match the original SQLite API
   return {
     id: data.id,
@@ -729,7 +825,8 @@ const updateEntry = async (id, entry) => {
     category_name: data.category.name,
     category_type: data.category.type,
     category_color: data.category.color,
-    category_icon: data.category.icon
+    category_icon: data.category.icon,
+    tags: entryTags
   };
 };
 
@@ -810,7 +907,8 @@ const getEntriesForExport = async (from, to) => {
       id, type, amount, note, date, created_at, updated_at,
       account:accounts(name),
       category:categories(name),
-      transfer_group_id
+      transfer_group_id,
+      entry_tags(tags(name))
     `)
     .is('deleted_at', null);  // Add deleted_at filter for soft-delete
 
@@ -830,7 +928,7 @@ const getEntriesForExport = async (from, to) => {
     throw error;
   }
 
-  // Flatten the response to match the original SQLite API
+  // Flatten the response to match the original SQLite API, with tags as comma-separated string
   return data.map(entry => ({
     id: entry.id,
     type: entry.type,
@@ -841,7 +939,8 @@ const getEntriesForExport = async (from, to) => {
     updated_at: entry.updated_at,
     account_name: entry.account.name,
     category_name: entry.category.name,
-    transfer_group_id: entry.transfer_group_id // Add transfer_group_id
+    transfer_group_id: entry.transfer_group_id, // Add transfer_group_id
+    tags: (entry.entry_tags || []).map(et => et.tags ? et.tags.name : null).filter(Boolean).join(', ')
   }));
 };
 
@@ -2096,6 +2195,180 @@ const confirmRecurrence = async (id) => {
   return entry;
 };
 
+// ── Calendar + Tags queries (US-08 + US-14, v2.5) ─────────────────────
+
+// US-08: Per-day aggregated totals for a calendar month (design §A.3.2).
+// Copies the design's exact implementation — JS aggregation over a bounded
+// month of entries, zero-filling all days, excluding transfers and soft-deleted entries.
+const getCalendarMonth = async (month) => {
+  const [year, mon] = month.split('-').map(Number);
+  const daysInMonth = new Date(year, mon, 0).getDate(); // mon is 1-based; day 0 of next month = last day of this month
+
+  // Build all dates in the month for zero-fill
+  const allDates = [];
+  for (let d = 1; d <= daysInMonth; d++) {
+    allDates.push(`${month}-${String(d).padStart(2, '0')}`);
+  }
+
+  const from = `${month}-01`;
+  const to = `${month}-${String(daysInMonth).padStart(2, '0')}`;
+
+  const { data, error } = await supabase
+    .from('entries')
+    .select('date, type, amount, transfer_group_id')
+    .is('deleted_at', null)
+    .is('transfer_group_id', null)   // exclude transfers
+    .gte('date', from)
+    .lte('date', to);
+
+  if (error) throw error;
+
+  // Aggregate in JS — the row count for one month is bounded (~31 days × maybe 20 entries/day = 620 rows max),
+  // so a JS reduce is simpler and more readable than a raw SQL GROUP BY via supabase-js.
+  // This mirrors the existing pattern in getDashboardMoM which also aggregates in JS after fetching.
+  const dayMap = {};
+  for (const entry of data) {
+    if (!dayMap[entry.date]) {
+      dayMap[entry.date] = { total_income: 0, total_expense: 0 };
+    }
+    if (entry.type === 'income') {
+      dayMap[entry.date].total_income += entry.amount;
+    } else {
+      dayMap[entry.date].total_expense += entry.amount;
+    }
+  }
+
+  // Zero-fill all dates
+  const days = allDates.map(date => ({
+    date,
+    total_income: dayMap[date]?.total_income || 0,
+    total_expense: dayMap[date]?.total_expense || 0,
+    net: (dayMap[date]?.total_income || 0) - (dayMap[date]?.total_expense || 0),
+  }));
+
+  return { month, days };
+};
+
+// US-14: List all tags, optional prefix filter for autocomplete (design §B.3.1).
+const getTags = async (q) => {
+  let query = supabase
+    .from('tags')
+    .select('id, name, created_at')
+    .order('name_lower', { ascending: true });
+
+  if (q) {
+    // Prefix filter on name_lower — case-insensitive matching per design §B.2.1
+    query = query.ilike('name_lower', `${q.toLowerCase()}%`);
+  }
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return { tags: data };
+};
+
+// US-14: Idempotent tag creation (design §B.3.1). If a tag with the same
+// name_lower already exists, return it (200). Otherwise create a new one (201).
+// Returns { tag, created } where created is true/false.
+const createTag = async (name) => {
+  const name_lower = name.toLowerCase();
+
+  // Check if tag already exists
+  const { data: existing, error: checkError } = await supabase
+    .from('tags')
+    .select('id, name, created_at')
+    .eq('name_lower', name_lower)
+    .maybeSingle();
+
+  if (checkError) throw checkError;
+
+  if (existing) {
+    return { tag: existing, created: false };
+  }
+
+  const { data, error } = await supabase
+    .from('tags')
+    .insert({ name, name_lower })
+    .select('id, name, created_at')
+    .single();
+
+  if (error) {
+    // Race condition: unique constraint violation — another request created
+    // the same tag between our check and insert. Retry as a fetch.
+    if (error.code === '23505') {
+      const { data: existing2, error: checkError2 } = await supabase
+        .from('tags')
+        .select('id, name, created_at')
+        .eq('name_lower', name_lower)
+        .maybeSingle();
+      if (checkError2) throw checkError2;
+      return { tag: existing2, created: false };
+    }
+    throw error;
+  }
+
+  return { tag: data, created: true };
+};
+
+// US-14: Hard-delete a tag (cascades to entry_tags via FK ON DELETE CASCADE).
+const deleteTag = async (id) => {
+  const { data, error } = await supabase
+    .from('tags')
+    .delete()
+    .eq('id', id)
+    .select('id')
+    .maybeSingle();
+
+  if (error) throw error;
+  return data; // null if not found
+};
+
+// US-14: Tag-filtered spending report (design §B.3.3).
+// NOTE: Uses .is('entries.deleted_at', null) NOT .eq() — .eq(col, null)
+// never matches NULL in PostgREST (translates to SQL `= NULL` which is
+// always false). This was a real bug caught during design review; the
+// corrected version is in the design doc and must not be reverted.
+const getTagsReport = async (from, to) => {
+  // Fetch entry_tags joined with entries and tags, filtered by date range
+  let query = supabase
+    .from('entry_tags')
+    .select(`
+      tag_id,
+      tags!inner(id, name),
+      entries!inner(amount)
+    `)
+    .is('entries.deleted_at', null)  // CORRECTED during review: .eq(col, null) never matches
+                                      // NULL in Supabase-js/PostgREST (translates to SQL `= NULL`,
+                                      // which is always false) — .is() is required for NULL checks.
+                                      // This matches getCalendarMonth's own .is('deleted_at', null)
+                                      // two sections earlier in this same document; the original
+                                      // draft here was inconsistent with it.
+    .is('entries.transfer_group_id', null);  // exclude transfers
+
+  if (from) query = query.gte('entries.date', from);
+  if (to) query = query.lte('entries.date', to);
+
+  const { data, error } = await query;
+  if (error) throw error;
+
+  // Aggregate by tag (JS reduce, same pattern as getExpenseBreakdown)
+  const tagMap = {};
+  for (const row of data) {
+    const tagId = row.tag_id;
+    if (!tagMap[tagId]) {
+      tagMap[tagId] = {
+        id: tagId,
+        name: row.tags.name,
+        total_amount: 0,
+        entry_count: 0,
+      };
+    }
+    tagMap[tagId].total_amount += row.entries.amount;
+    tagMap[tagId].entry_count += 1;
+  }
+
+  return Object.values(tagMap).sort((a, b) => b.total_amount - a.total_amount);
+};
+
 module.exports = {
   // Transfer queries
   createTransfer,
@@ -2172,5 +2445,12 @@ module.exports = {
   getDueRecurrences,
   getPendingConfirmationRecurrences,
   processRecurrences,
-  confirmRecurrence
+  confirmRecurrence,
+
+  // Calendar + Tags queries (US-08 + US-14, v2.5)
+  getCalendarMonth,
+  getTags,
+  createTag,
+  deleteTag,
+  getTagsReport
 };

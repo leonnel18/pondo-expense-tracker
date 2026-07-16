@@ -27,6 +27,7 @@ const createEntrySchema = z.object({
     category_id: z.number().int().positive(),
     note: z.string().max(500).optional(),
     date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    tag_ids: z.array(z.number().int().positive()).optional(),
   }),
 });
 
@@ -38,6 +39,7 @@ const updateEntrySchema = z.object({
     category_id: z.number().int().positive().optional(),
     note: z.string().max(500).optional(),
     date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+    tag_ids: z.array(z.number().int().positive()).optional(),
   }),
   params: z.object({
     id: z.string().regex(/^\d+$/),
@@ -57,6 +59,20 @@ const createTransferSchema = z.object({
 const bulkDeleteEntriesSchema = z.object({
   body: z.object({
     ids: z.array(z.number().int().positive()),
+  }),
+});
+
+// Calendar query schema (US-08, design §A.3.1)
+const calendarQuerySchema = z.object({
+  query: z.object({
+    month: z.string().regex(/^\d{4}-\d{2}$/, 'month must be YYYY-MM'),
+  }),
+});
+
+// Tag creation schema (US-14, design §B.3.1)
+const createTagSchema = z.object({
+  body: z.object({
+    name: z.string().min(1).max(100).trim(),
   }),
 });
 
@@ -192,6 +208,8 @@ module.exports = {
   updateEntrySchema,
   createTransferSchema,
   bulkDeleteEntriesSchema,
+  calendarQuerySchema,
+  createTagSchema,
   createBudgetSchema,
   updateBudgetSchema,
   createRecurrenceSchema,

@@ -10,9 +10,10 @@ const {
   bulkDeleteEntries,
   setSetting,
   getCategoryById,
-  getAccountById
+  getAccountById,
+  getCalendarMonth
 } = require('../db/queries');
-const { validate, createEntrySchema, updateEntrySchema, bulkDeleteEntriesSchema } = require('../middleware/validate');
+const { validate, createEntrySchema, updateEntrySchema, bulkDeleteEntriesSchema, calendarQuerySchema } = require('../middleware/validate');
 // Local YYYY-MM-DD string, avoids the UTC-vs-local mismatch from Date parsing
 const getTodayDateString = () => {
   const now = new Date();
@@ -33,6 +34,7 @@ router.get('/', validate(z.object({
     search: z.string().optional(),
     sort: z.enum(['date', 'amount', 'category', 'account']).optional(),
     order: z.enum(['asc', 'desc']).optional(),
+    tag_id: z.string().regex(/^\d+$/).optional(),
   }),
 })), async (req, res, next) => {
   try {
@@ -49,10 +51,23 @@ router.get('/', validate(z.object({
     if (req.query.search) filters.search = req.query.search;
     if (req.query.sort) filters.sort = req.query.sort;
     if (req.query.order) filters.order = req.query.order;
+    if (req.query.tag_id) filters.tag_id = parseInt(req.query.tag_id);
     if (filters.page) filters.offset = (filters.page - 1) * (filters.per_page || 10);
     if (filters.per_page) filters.limit = filters.per_page;
 
     const result = await getEntries(filters);
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /api/entries/calendar?month=YYYY-MM
+// IMPORTANT: must be registered BEFORE /:id — Express matches in order,
+// /calendar would be captured by /:id with id='calendar' → NaN → 400.
+router.get('/calendar', validate(calendarQuerySchema), async (req, res, next) => {
+  try {
+    const result = await getCalendarMonth(req.query.month);
     res.json(result);
   } catch (error) {
     next(error);
@@ -150,7 +165,7 @@ router.post('/', validate(createEntrySchema), async (req, res, next) => {
       });
     }
     
-    const entry = await createEntry(req.body);
+    const entry = await createEntry(req.body, { tagIds: req.body.tag_ids });
 
     // Update last used account setting
     await setSetting('last_used_account_id', String(accountId));
@@ -253,6 +268,11 @@ router.put('/:id', validate(updateEntrySchema), async (req, res, next) => {
       category_id: req.body.category_id ?? existingEntry.category_id,
       note: req.body.note !== undefined ? req.body.note : existingEntry.note,
       date: req.body.date ?? existingEntry.date,
+    }, {
+      // tag_ids: if present in the request body (including empty array),
+      // pass it for full replacement. If absent from the body, pass undefined
+      // so updateEntry leaves existing tags untouched.
+      tagIds: req.body.tag_ids !== undefined ? req.body.tag_ids : undefined,
     });
     res.json({ entry });
   } catch (error) {
