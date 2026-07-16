@@ -406,3 +406,30 @@ These existed in production before this bugfix session but had no local file rec
 - **QA pass attempted but failed.** `qa-pondo` (`kimi-k2.7-code:cloud`) was dispatched with a broad multi-item QA brief and hit a context-overflow error (262K context window exhausted after spawning subagents) — not a model retirement, just a task-scoping issue. Gino is retesting the live site directly instead of an automated re-run.
 - **Model retirements (2026-07-15):** `pm`'s own model (`gemini-3-flash-preview:cloud` — which is why this documentation dispatch itself failed once before succeeding) and `feasibility-analyst`'s model (`qwen3-coder:480b-cloud`) were both retired by Ollama Cloud and have been reassigned.
 - **Model experiment started:** `dev` and `dev-pondo` are now assigned `glm-5.2:cloud` instead of `deepseek-v4-pro:cloud`, to compare performance on real coding tasks going forward — tracked in `artifacts/model-experiment-tracking.md`, not fully documented here.
+
+---
+
+## Session — v2.5 Entries-screen depth: US-08 calendar view + US-14 tags (2026-07-16)
+
+**Trigger:** Gino chose v2.5's two user stories as the first item of a larger cherry-picked batch spanning v2.5/v2.6/v2.11 (US-08, US-14, then US-20+US-19, then US-38, then US-37, with US-24 saved for last since it's XL and needs its own architecture pass).
+
+**Process:** `architect-pondo` (`deepseek-v4-pro:cloud`) wrote the SAD (`docs/v2.5-entries-depth/01-calendar-tags-design.md`) covering both stories' API contracts (`GET /api/entries/calendar?month=YYYY-MM`, full `tags`/`entry_tags` CRUD + report endpoint). One design-time bug was caught and fixed before implementation: the design's own example code for `getTagsReport` used `.eq(col, null)`, which never matches SQL NULL in PostgREST/Supabase-js (`.is()` is required).
+
+Build was split across `dev-pondo` (`glm-5.2:cloud`, the model-experiment assignment — see `artifacts/model-experiment-tracking.md`) in 4 dispatches: backend (needed a 2nd narrower follow-up after the first attempt timed out with `server/routes/tags.js` and the `server.js` mount left unfinished), calendar frontend, and tags frontend split into 2 parts (tag input/entry integration, then the tags report page) to avoid concurrent edits to shared files like `Entries.jsx`.
+
+### Defects found on independent review
+
+1. **Backend attempt 1:** `calendarQuerySchema`/`createTagSchema` were defined in `validate.js` but never added to `module.exports` — would have made `GET /api/entries/calendar` 500 on every request. Fixed directly.
+2. **Process, not a code defect:** the calendar-frontend dispatch ran `git commit` on its own initiative (commit `1dfd6ff`) without being asked — the commit was correct on review, but bypassed independent review-before-commit. Root cause: neither `AGENTS.md` nor `TOOLS.md` told it not to. Fixed at the source by adding an explicit no-git-write constraint to all 8 pondo agent persona files, not just `dev-pondo`.
+
+The remaining 3 dispatches (backend follow-up, tags part 1, tags part 2) were clean — 0 defects on direct review. Full breakdown in `artifacts/model-experiment-tracking.md`.
+
+### New-table-forgot-RLS gap, recurring for the third time
+
+Migration `010_tags.sql` created `tags`/`entry_tags` without enabling RLS — the same gap already hit twice before this session for `budgets`/`recurrences` (006/007). Found via `get_advisors` (ERROR-level "RLS Disabled in Public"), fixed via `011_enable_rls_tags.sql`, verified clean via a second `get_advisors` pass. Given this is now a 3-for-3 recurrence of the identical mistake, this is a candidate for a standing pre-migration checklist item (or a design-doc template line) rather than continuing to catch it after the fact — not yet acted on, flagged here for the next process review.
+
+### Status
+
+- **v2.5: fully done** — design, backend, calendar frontend, tags frontend (both parts), migrations `010` and `011` applied to production Supabase and verified via `get_advisors`. Committed (`9c05268` for the feature work; migration `011`'s local file recorded in this commit).
+- Gino separately raised, in response to the dev-pondo self-commit finding, whether a staging environment should be set up so agent work can be checked before it ever reaches prod — floated, not yet scoped or committed to.
+- **Next:** US-20 (per-counterparty Lent/Borrowed breakdown) + US-19 (named savings goals), bundled together per Gino's sequencing request, then US-38 (photo attachments), then US-37 (personalization/theming — needs its own design pass), then US-24 (AI-assisted capture) last.
