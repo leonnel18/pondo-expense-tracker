@@ -352,3 +352,57 @@ One local commit (`d3d8320`) covering the full v2.3 design + backend + frontend 
 - **v2.3: fully done, independently verified (including two real defects found and fixed — one a latent production-auth bug inherited from v2.1, one a cycle-math bug inherited from v2.2 — plus one design-time inconsistency caught before implementation), committed locally (`d3d8320`).**
 - **New standing note:** accumulated migrations now number 5 (`001` through `005`, auth/soft-delete/transfers/budgets/recurrences) — none applied to production Supabase. Gino has asked that after v2.3, the branch be committed, pushed to GitHub, and deployed to Vercel. **Before that can safely happen**, all 5 migrations need to be applied to production Supabase first (pushing code alone does not run SQL migrations — deploying the new code against a database still missing these tables/columns would 500 across auth, transfers, budgets, and recurrences), and the new `CRON_SECRET` env var needs to be added to the Vercel project per the fix above. This requires the Supabase/Vercel MCP connections (dropped earlier this session) to be reconnected, or manual application via the Supabase dashboard.
 - **Next:** v2.4 (US-18 CSV import/data portability), v2.5 (US-08 calendar view + US-14 tagging), per Gino's standing overnight authorization through v2.5 — continuing before returning to the push/deploy prerequisites above.
+
+---
+
+## Session — Post-launch bugfix batch (2026-07-16)
+
+**Trigger:** Gino performed live end-to-end testing of the deployed app immediately after the production auth fix (JWT issuer mismatch, ES256/JWKS migration, function `search_path` bug — documented separately, not re-covered here) was finally resolved. That auth fix is what made testing possible at all; this entry covers only what Gino found once he could actually use the app.
+
+**Process:** Gino explicitly waived design docs for this round — speed over ceremony, since these were concrete bugs with mostly-known symptoms, not new feature work needing architecture. DARKLING wrote the dev brief directly (with root-cause hypotheses from reading the actual code) and dispatched to `dev-pondo`. No design artifacts were produced; this is a pure bugfix batch.
+
+### Bugs found (8 real, 1 design ask)
+
+1. **Dashboard shows "₱NaN" for zero values.** Total Expenses, Net Balance, and period-change displayed "₱NaN" when the underlying value was legitimately 0 — a display-level formatting failure, not a data issue.
+2. **Sidebar/nav disappears on every page except the home dashboard.** Navigation was only rendering on the dashboard route; all other pages had no sidebar or top nav.
+3. **Emoji picker immediately submits the account-creation form.** Clicking an emoji while creating a new account triggered a form submission, because the emoji buttons defaulted to `type="submit"` inside the form.
+4. **Session doesn't persist across a page refresh.** Refreshing the browser redirected the user to sign-in immediately, instead of maintaining the session for ~30 days of inactivity as designed.
+5. **Accounts dropdown is empty in Quick Add (dashboard) and the Entries page's add-entry form.** The accounts list failed to populate in both places.
+6. **Adding filter values on the Entries page feels like a full page reload.** Filter changes triggered a full-page spinner instead of a small inline loading indicator.
+7. **Add Entry uses full-page navigation instead of a modal.** *(Design ask, not a bug.)* Gino wanted the add-entry flow to be an in-page modal matching the existing Budgets/Recurrences pattern, not a full-page route change.
+8. **After logout then login, newly-added transactions don't show on the dashboard, and accounts/type dropdowns are empty.** The app didn't refetch data when auth state changed (logout→login), so the dashboard and dropdowns showed stale/empty state.
+
+### Fixes (`dev-pondo`, commit `e282d65`, pushed to `origin/main`)
+
+| # | Root cause | Fix |
+|---|------------|-----|
+| 1 | Server-side KPI key mismatch (`net` vs `net_balance`) in the dashboard endpoint | Key corrected; currency/percentage formatters guarded against null/NaN/Infinity |
+| 2 | **Initial hypothesis was wrong — corrected after checking production data.** First theory: `backfill_first_user()`'s `ON CONFLICT DO NOTHING` left a stale pre-existing `first_launch_completed` settings row from the old v1 app uncorrected. After Supabase access was restored, DARKLING queried `public.settings` directly and found `first_launch_completed` was already correctly `'1'` — the stale-row theory didn't hold. **Real cause:** `Layout.jsx`'s first-launch check runs once on mount and is never re-fetched; in a single-page app, if that one-time check ran before a signup's backend write had committed, the component would hold a stale `isFirstLaunch: true` for the rest of the session, with no full page reload to refresh it. | `Layout.jsx` wired to `AuthContext`'s reactive `isAuthenticated` instead of the stale one-time flag. Migration `009_fix_first_launch_completed.sql` (switching `backfill_first_user()`'s `ON CONFLICT` from `DO NOTHING` to `DO UPDATE`) was still applied to production as a legitimate defensive improvement for future first-signups, but was not the deciding fix for this incident. |
+| 3 | `EmojiPicker.jsx` buttons missing `type="button"`, defaulting to `type="submit"` inside the account-creation form | `type="button"` added to all emoji buttons |
+| 4 | Refresh-token cookie lifetime was 7 days; `AuthContext` had no fallback refresh-and-retry path | Cookie lifetime extended to 30 days; fallback refresh-and-retry path added to `AuthContext` |
+| 5 & 8 | `Promise.all()` rejected entirely when any one of several parallel API calls failed, masking successful calls (including the accounts fetch) | Converted to `Promise.allSettled()` across affected components; Dashboard and Entries pages now refetch on auth state change (logout→login), not just on filter changes |
+| 6 | Single `loading` state used for both initial mount and subsequent fetches | Split into `initialLoading` (first mount only, full-page spinner) and `loading` (subsequent fetches, small inline indicator) |
+| 7 | *(Design ask, not a bug)* | Add Entry converted to an in-page modal on the Entries page (matching the existing Budgets/Recurrences modal pattern); old full-page route kept for backward compatibility |
+
+### DARKLING's independent review caught 2 additional defects in dev-pondo's fixes before commit
+
+This is a consistent pattern across the project — TWC/Ollama dispatches need independent verification, not blind trust. Both were caught before they reached production:
+
+1. **Dead cookie check in `Layout.jsx`.** The defensive fix for bug #2 checked `document.cookie.includes('sb-access-token')` to detect whether a user was logged in — but that cookie is deliberately `httpOnly` (set that way specifically to block XSS token theft), meaning client-side JavaScript can never read it. The check was dead code that always evaluated to `false`, silently not doing what it was meant to do. Fixed by wiring `Layout.jsx` to the app's existing `AuthContext` (`useAuth()`'s `isAuthenticated`) instead.
+2. **Migration `009` would have silently reverted the `search_path` fix from earlier that day.** `CREATE OR REPLACE FUNCTION` on `backfill_first_user()` would have wiped out the `SET search_path = public` clause from hotfix migration `008_fix_function_search_path.sql` — `CREATE OR REPLACE` fully redefines a function rather than merging with the prior definition, so anything not re-specified is lost. If applied as originally written, this would have reintroduced the exact bug that caused the original signup 500 crash earlier in the day. Caught before it was applied to production; the migration file was corrected to re-include the `SET search_path = public` clause.
+
+### Retroactively recorded: 3 security hotfix migrations (006–008) applied directly to production earlier the same day
+
+These existed in production before this bugfix session but had no local file record until now. DARKLING had applied them directly to production Supabase earlier on 2026-07-16 (before the bugfix round):
+
+- **`006_security_hardening_rls_and_rpc_grants.sql`** — RLS was found disabled on both `budgets` and `recurrences` (unlike every other table in the schema). Since the client bundle ships a public anon key, this was exploitable — enabled RLS on both. Also attempted to revoke anon/authenticated execute access on several `SECURITY DEFINER` functions (including the transfer RPCs, callable directly via Supabase's REST API and bypassing the Express server's auth entirely — a live money-movement authorization bypass), but the `REVOKE ... FROM anon, authenticated` had no effect (see 007).
+- **`007_revoke_public_execute_grant_fix.sql`** — Fixes 006: Postgres grants EXECUTE to the implicit `PUBLIC` pseudo-role by default, and every role inherits it regardless of role-specific revokes. Verified directly via `has_function_privilege()` that 006's revoke was a no-op; re-issued as `REVOKE ... FROM PUBLIC`, confirmed effective, with explicit re-grants to `service_role` only.
+- **`008_fix_function_search_path.sql`** — Unrelated to grants: pinned `SET search_path = public` on the same six `SECURITY DEFINER` functions, closing the "Function Search Path Mutable" advisory and fixing the actual root cause of the signup-500 crash (an unqualified `seed_default_categories()` call inside `backfill_first_user()` failing to resolve without an explicit search_path).
+
+### Status
+
+- **Migration `009`** applied to production and verified (confirmed `search_path=public` was correctly preserved on `backfill_first_user()` after the `CREATE OR REPLACE`).
+- **Code fixes** live on Vercel via the `e282d65` push to `origin/main` (Vercel auto-deploys on push to `main`).
+- **QA pass attempted but failed.** `qa-pondo` (`kimi-k2.7-code:cloud`) was dispatched with a broad multi-item QA brief and hit a context-overflow error (262K context window exhausted after spawning subagents) — not a model retirement, just a task-scoping issue. Gino is retesting the live site directly instead of an automated re-run.
+- **Model retirements (2026-07-15):** `pm`'s own model (`gemini-3-flash-preview:cloud` — which is why this documentation dispatch itself failed once before succeeding) and `feasibility-analyst`'s model (`qwen3-coder:480b-cloud`) were both retired by Ollama Cloud and have been reassigned.
+- **Model experiment started:** `dev` and `dev-pondo` are now assigned `glm-5.2:cloud` instead of `deepseek-v4-pro:cloud`, to compare performance on real coding tasks going forward — tracked in `artifacts/model-experiment-tracking.md`, not fully documented here.
