@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Edit, Trash2, Download } from 'lucide-react';
+import { Plus, Edit, Trash2, Download, List, Calendar } from 'lucide-react';
 import { getEntries, getAccounts, getCategories, deleteEntry, exportEntries, createEntry } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import FilterPanel from '../components/dashboard/FilterPanel';
+import CalendarView from '../components/entries/CalendarView';
 
 const Entries = () => {
   const navigate = useNavigate();
@@ -34,6 +35,7 @@ const Entries = () => {
   const [entryToDelete, setEntryToDelete] = useState(null);
 
   // Add Entry modal state
+  const [viewMode, setViewMode] = useState('list'); // 'list' | 'calendar' — local only, not persisted
   const [showAddModal, setShowAddModal] = useState(false);
   const [addForm, setAddForm] = useState({
     type: 'expense',
@@ -200,6 +202,13 @@ const Entries = () => {
     setShowAddModal(true);
   };
 
+  const handleDayClick = (dateStr) => {
+    // Set filter to the single clicked date and switch to list view
+    setFilters(prev => ({ ...prev, from: dateStr, to: dateStr }));
+    setPagination(prev => ({ ...prev, page: 1 }));
+    setViewMode('list');
+  };
+
   const handleExport = async () => {
     try {
       setExporting(true);
@@ -253,6 +262,34 @@ const Entries = () => {
         </div>
       </div>
 
+      {/* List / Calendar toggle — local state, not persisted */}
+      <div className="flex items-center gap-2 mb-4">
+        <button
+          onClick={() => setViewMode('list')}
+          className={`inline-flex items-center px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+            viewMode === 'list'
+              ? 'bg-brand-600 text-white'
+              : 'bg-white text-gray-600 border border-gray-300 hover:bg-gray-50'
+          }`
+        }
+        >
+          <List className="h-4 w-4 mr-1.5" />
+          List
+        </button>
+        <button
+          onClick={() => setViewMode('calendar')}
+          className={`inline-flex items-center px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+            viewMode === 'calendar'
+              ? 'bg-brand-600 text-white'
+              : 'bg-white text-gray-600 border border-gray-300 hover:bg-gray-50'
+          }`
+        }
+        >
+          <Calendar className="h-4 w-4 mr-1.5" />
+          Calendar
+        </button>
+      </div>
+
       <FilterPanel
         filters={filters}
         onFilterChange={handleFilterChange}
@@ -264,7 +301,11 @@ const Entries = () => {
         showSearch={true}
       />
 
-      {entries.length === 0 ? (
+      {viewMode === 'calendar' ? (
+        <div className="mt-6">
+          <CalendarView onDayClick={handleDayClick} />
+        </div>
+      ) : entries.length === 0 ? (
         <div className="text-center p-12 border border-gray-200 rounded-lg mt-6">
           <p className="text-gray-500 mb-4">No entries found</p>
           <button

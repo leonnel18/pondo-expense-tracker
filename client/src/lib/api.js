@@ -166,6 +166,9 @@ export const getEntries = (filters = {}) => {
   return apiRequest(`/entries?${params}`);
 };
 
+// Calendar API — per-day aggregated totals for a month
+export const getCalendarMonth = (month) => apiRequest(`/entries/calendar?month=${month}`);
+
 export const getEntry = (id) => {
   return apiRequest(`/entries/${id}`);
 };

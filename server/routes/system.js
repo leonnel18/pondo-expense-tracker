@@ -74,7 +74,7 @@ router.get('/settings', async (req, res, next) => {
     const result = {};
     
     // Filter to only include the specific settings we want
-    const keysToInclude = ['last_used_account_id', 'first_launch_completed'];
+    const keysToInclude = ['last_used_account_id', 'first_launch_completed', 'calendar_view_tooltip_dismissed'];
     keysToInclude.forEach(key => {
       if (allSettings[key] !== undefined) {
         result[key] = allSettings[key];
@@ -90,17 +90,21 @@ router.get('/settings', async (req, res, next) => {
 // PUT /api/settings
 router.put('/settings', async (req, res, next) => {
   try {
-    const { last_used_account_id } = req.body;
+    const { last_used_account_id, calendar_view_tooltip_dismissed } = req.body;
 
     if (last_used_account_id !== undefined) {
       await setSetting('last_used_account_id', last_used_account_id.toString());
     }
 
+    if (calendar_view_tooltip_dismissed !== undefined) {
+      await setSetting('calendar_view_tooltip_dismissed', calendar_view_tooltip_dismissed.toString());
+    }
+
     const allSettings = await getAllSettings();
     const result = {};
-    
+
     // Filter to only include the specific settings we want
-    const keysToInclude = ['last_used_account_id', 'first_launch_completed'];
+    const keysToInclude = ['last_used_account_id', 'first_launch_completed', 'calendar_view_tooltip_dismissed'];
     keysToInclude.forEach(key => {
       if (allSettings[key] !== undefined) {
         result[key] = allSettings[key];
