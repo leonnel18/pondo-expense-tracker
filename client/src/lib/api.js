@@ -198,6 +198,14 @@ export const getTags = (q) => apiRequest(`/tags${q ? `?q=${encodeURIComponent(q)
 export const createTag = (name) => apiRequest('/tags', { method: 'POST', body: JSON.stringify({ name }) });
 export const deleteTag = (id) => apiRequest(`/tags/${id}`, { method: 'DELETE' });
 
+// Tag Report API — tag-filtered spending aggregation
+export const getTagsReport = (from, to) => {
+  const params = new URLSearchParams();
+  if (from) params.append('from', from);
+  if (to) params.append('to', to);
+  return apiRequest(`/tags/report?${params}`);
+};
+
 // Dashboard API
 export const getDashboard = (from, to) => {
   const params = new URLSearchParams();

@@ -1,4 +1,4 @@
-import { LayoutDashboard, ClipboardList, Trash2, Wallet, Tags, Download, PiggyBank, Repeat } from 'lucide-react';
+import { LayoutDashboard, ClipboardList, Trash2, Wallet, Tags, Download, PiggyBank, Repeat, Hash } from 'lucide-react';
 
 export const navItems = [
     { path: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -6,6 +6,7 @@ export const navItems = [
     { path: '/recycle-bin', label: 'Recycle Bin', icon: Trash2 },
     { path: '/accounts', label: 'Accounts', icon: Wallet },
     { path: '/categories', label: 'Categories', icon: Tags },
+    { path: '/reports/tags', label: 'Tags Report', icon: Hash },
     { path: '/budgets', label: 'Budgets', icon: PiggyBank },
     { path: '/recurrences', label: 'Recurring', icon: Repeat },
     { path: '/export', label: 'Export', icon: Download },

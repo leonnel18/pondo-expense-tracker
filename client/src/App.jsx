@@ -20,6 +20,7 @@ import SignIn from './pages/SignIn';
 import SignUp from './pages/SignUp';
 import ResetPassword from './pages/ResetPassword';
 import RecycleBin from './pages/RecycleBin';
+import TagsReport from './pages/TagsReport';
 
 const NotFound = () => (
   <div className="p-12 text-center">
@@ -57,6 +58,7 @@ function App() {
             <Route path="recurrences" element={<Recurrences />} />
             <Route path="export" element={<Export />} />
             <Route path="recycle-bin" element={<RecycleBin />} />
+            <Route path="reports/tags" element={<TagsReport />} />
             <Route path="transfers/new" element={<AddTransfer />} />
             <Route path="transfers/:transferGroupId/edit" element={<EditTransfer />} />
             <Route path="*" element={<NotFound />} />
