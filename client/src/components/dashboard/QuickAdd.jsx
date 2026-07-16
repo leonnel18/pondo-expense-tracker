@@ -21,19 +21,26 @@ const QuickAdd = ({ onEntryAdded }) => {
 
   const fetchData = async () => {
     try {
-      const [accountsData, expenseCategories, incomeCategories] = await Promise.all([
+      // Use individual try/catch per call so one failure doesn't block the others
+      const results = await Promise.allSettled([
         getAccounts(),
         getCategories('expense'),
         getCategories('income')
       ]);
       
-      setAccounts(accountsData);
-      setCategories({ expense: expenseCategories, income: incomeCategories });
+      const [accountsResult, expenseResult, incomeResult] = results;
       
-      // Set default account if there's only one
-      if (accountsData.length === 1) {
-        setForm(prev => ({ ...prev, account_id: accountsData[0].id }));
+      if (accountsResult.status === 'fulfilled') {
+        setAccounts(accountsResult.value);
+        // Set default account if there's only one
+        if (accountsResult.value.length === 1) {
+          setForm(prev => ({ ...prev, account_id: accountsResult.value[0].id }));
+        }
       }
+      
+      const expenseCategories = expenseResult.status === 'fulfilled' ? expenseResult.value : [];
+      const incomeCategories = incomeResult.status === 'fulfilled' ? incomeResult.value : [];
+      setCategories({ expense: expenseCategories, income: incomeCategories });
     } catch (err) {
       showMessage('Failed to load data', 'error');
     }

@@ -1,19 +1,20 @@
 import React from 'react';
 
 const KpiCard = ({ title, value, change, direction, subtitle, isIncome }) => {
-  // Format currency
+  // Format currency — coerce null/undefined/NaN to 0 to avoid "₱NaN"
   const formatCurrency = (amount) => {
+    const safe = (amount == null || Number.isNaN(amount)) ? 0 : amount;
     return new Intl.NumberFormat('en-PH', {
       style: 'currency',
       currency: 'PHP',
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
-    }).format(amount);
+    }).format(safe);
   };
 
-  // Format percentage
+  // Format percentage — guard division by zero (previous = 0 → show "—")
   const formatPercentage = (percentage) => {
-    if (percentage === null || percentage === undefined) return 'No data';
+    if (percentage === null || percentage === undefined || !Number.isFinite(percentage)) return '—';
     return `${percentage >= 0 ? '+' : ''}${percentage.toFixed(1)}%`;
   };
 

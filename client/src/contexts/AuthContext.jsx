@@ -20,7 +20,23 @@ export function AuthProvider({ children }) {
                 const data = await getAuthUser();
                 setUser(data.user);
             } catch (err) {
-                // No valid session — user is null (not an error state)
+                // If the access token is expired, try refreshing before giving up.
+                // The apiRequest retry logic handles TOKEN_EXPIRED automatically,
+                // but if that fails (e.g., cookie timing), try an explicit refresh.
+                try {
+                    const refreshRes = await fetch('/api/auth/refresh', {
+                        method: 'POST',
+                        credentials: 'include',
+                    });
+                    if (refreshRes.ok) {
+                        const data = await getAuthUser();
+                        setUser(data.user);
+                        setIsLoading(false);
+                        return;
+                    }
+                } catch (_) {
+                    // Refresh also failed — truly no session
+                }
                 setUser(null);
             } finally {
                 setIsLoading(false);

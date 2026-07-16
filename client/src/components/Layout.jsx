@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { getSystemStatus } from '../lib/api';
+import { useAuth } from '../contexts/AuthContext';
 import Sidebar from './Sidebar';
 import Header from './Header';
 import BottomNav from './BottomNav';
@@ -13,6 +14,7 @@ const Layout = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
 
   useEffect(() => {
     const initializeApp = async () => {
@@ -70,8 +72,18 @@ const Layout = () => {
     );
   }
 
-  // If first launch, show setup page (handled by App.jsx routes)
-  if (isFirstLaunch && location.pathname !== '/') {
+  // If first launch AND not on dashboard, show setup page (handled by App.jsx routes).
+  // Guard: only apply this branch if the user is NOT authenticated — an authenticated
+  // user with a stale first_launch flag should still see the full layout.
+  //
+  // CORRECTED during review (DARKLING): the original version of this guard
+  // checked `document.cookie.includes('sb-access-token')` — that cookie is
+  // set httpOnly in server/routes/auth.js's setAuthCookies() specifically
+  // so client-side JS can NEVER read it (XSS protection). That check would
+  // always evaluate false, making this guard permanently dead code. Layout
+  // only ever renders inside AuthGate (see App.jsx), so useAuth()'s
+  // isAuthenticated is the correct, reliable signal here.
+  if (isFirstLaunch && !isAuthenticated && location.pathname !== '/') {
     return <Outlet />;
   }
 
@@ -96,7 +108,7 @@ const Layout = () => {
                   </p>
                   <div className="flex gap-2 mt-3">
                     <button 
-                      onClick={() => navigate('/entries/add')}
+                      onClick={() => navigate('/entries')}
                       className="bg-brand-600 text-white px-3 py-1.5 rounded-md text-sm hover:bg-brand-700"
                     >
                       Add Your First Entry

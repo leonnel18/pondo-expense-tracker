@@ -1,16 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Edit, Trash2, Download } from 'lucide-react';
-import { getEntries, getAccounts, getCategories, deleteEntry, exportEntries } from '../lib/api';
+import { getEntries, getAccounts, getCategories, deleteEntry, exportEntries, createEntry } from '../lib/api';
+import { useAuth } from '../contexts/AuthContext';
 import FilterPanel from '../components/dashboard/FilterPanel';
 
 const Entries = () => {
   const navigate = useNavigate();
+  const { user } = useAuth(); // refetch when auth state changes
   const [exporting, setExporting] = useState(false);
   const [entries, setEntries] = useState([]);
   const [accounts, setAccounts] = useState([]);
   const [categories, setCategories] = useState({ expense: [], income: [] });
   const [loading, setLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true); // first load only — full-page spinner
   const [error, setError] = useState('');
   const [filters, setFilters] = useState({
     type: '',
@@ -30,10 +33,23 @@ const Entries = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [entryToDelete, setEntryToDelete] = useState(null);
 
+  // Add Entry modal state
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [addForm, setAddForm] = useState({
+    type: 'expense',
+    amount: '',
+    account_id: '',
+    category_id: '',
+    note: '',
+    date: new Date().toISOString().split('T')[0]
+  });
+  const [saving, setSaving] = useState(false);
+  const [addError, setAddError] = useState('');
+
   useEffect(() => {
     fetchData();
     fetchFilters();
-  }, []);
+  }, [user]); // refetch when auth state changes
 
   useEffect(() => {
     fetchEntries();
@@ -41,13 +57,20 @@ const Entries = () => {
 
   const fetchData = async () => {
     try {
-      const [accountsData, expenseCategories, incomeCategories] = await Promise.all([
+      const results = await Promise.allSettled([
         getAccounts(),
         getCategories('expense'),
         getCategories('income')
       ]);
       
-      setAccounts(accountsData);
+      const [accountsResult, expenseResult, incomeResult] = results;
+      
+      if (accountsResult.status === 'fulfilled') {
+        setAccounts(accountsResult.value);
+      }
+      
+      const expenseCategories = expenseResult.status === 'fulfilled' ? expenseResult.value : [];
+      const incomeCategories = incomeResult.status === 'fulfilled' ? incomeResult.value : [];
       setCategories({ expense: expenseCategories, income: incomeCategories });
     } catch (err) {
       setError('Failed to fetch data');
@@ -94,6 +117,7 @@ const Entries = () => {
       setError('Failed to fetch entries');
     } finally {
       setLoading(false);
+      setInitialLoading(false);
     }
   };
 
@@ -122,6 +146,60 @@ const Entries = () => {
     }
   };
 
+  const handleAddEntry = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    setAddError('');
+    
+    try {
+      const amount = parseFloat(addForm.amount);
+      if (isNaN(amount) || amount <= 0) {
+        throw new Error('Amount must be a positive number');
+      }
+      
+      await createEntry({
+        type: addForm.type,
+        amount: parseFloat(addForm.amount),
+        account_id: parseInt(addForm.account_id, 10),
+        category_id: parseInt(addForm.category_id, 10),
+        note: addForm.note,
+        date: addForm.date
+      });
+      
+      // Reset form but keep type and date
+      setAddForm(prev => ({
+        ...prev,
+        amount: '',
+        account_id: '',
+        category_id: '',
+        note: ''
+      }));
+      
+      setShowAddModal(false);
+      fetchEntries();
+    } catch (err) {
+      setAddError('Failed to create entry: ' + err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleAddTypeChange = (type) => {
+    setAddForm(prev => ({
+      ...prev,
+      type,
+      category_id: ''
+    }));
+  };
+
+  const openAddModal = () => {
+    // Pre-populate account if there's only one
+    if (accounts.length === 1) {
+      setAddForm(prev => ({ ...prev, account_id: accounts[0].id }));
+    }
+    setShowAddModal(true);
+  };
+
   const handleExport = async () => {
     try {
       setExporting(true);
@@ -134,10 +212,11 @@ const Entries = () => {
   };
 
   const formatCurrency = (amount) => {
+    const safe = (amount == null || Number.isNaN(amount)) ? 0 : amount;
     return new Intl.NumberFormat('en-PH', {
       style: 'currency',
       currency: 'PHP'
-    }).format(amount);
+    }).format(safe);
   };
 
   const formatDate = (dateString) => {
@@ -148,7 +227,7 @@ const Entries = () => {
     });
   };
 
-  if (loading && entries.length === 0) return <div className="p-6">Loading entries...</div>;
+  if (initialLoading) return <div className="p-6">Loading entries...</div>;
   if (error) return <div className="p-6 text-red-600">Error: {error}</div>;
 
   return (
@@ -165,7 +244,7 @@ const Entries = () => {
             {exporting ? 'Exporting...' : 'Export'}
           </button>
           <button
-            onClick={() => navigate('/entries/add')}
+            onClick={openAddModal}
             className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 transition-colors duration-150"
           >
             <Plus className="h-4 w-4 mr-2" />
@@ -189,7 +268,7 @@ const Entries = () => {
         <div className="text-center p-12 border border-gray-200 rounded-lg mt-6">
           <p className="text-gray-500 mb-4">No entries found</p>
           <button
-            onClick={() => navigate('/entries/add')}
+            onClick={openAddModal}
             className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-brand-600 hover:text-brand-700 focus:outline-none transition-colors duration-150"
           >
             Add your first entry
@@ -197,6 +276,11 @@ const Entries = () => {
         </div>
       ) : (
         <div className="mt-6">
+          {loading && (
+            <div className="text-center py-2 text-sm text-gray-400">
+              Refreshing...
+            </div>
+          )}
           <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 rounded-lg">
             <table className="min-w-full divide-y divide-gray-300">
               <thead className="bg-gray-50">
@@ -350,6 +434,142 @@ const Entries = () => {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Add Entry Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full p-6 transition-all duration-200 max-h-[90vh] overflow-y-auto">
+            <h2 className="text-lg font-semibold mb-4">Add New Entry</h2>
+            
+            {addError && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+                <p className="text-sm text-red-700">{addError}</p>
+              </div>
+            )}
+            
+            <form onSubmit={handleAddEntry} className="space-y-4">
+              <div className="flex space-x-4">
+                <button
+                  type="button"
+                  onClick={() => handleAddTypeChange('expense')}
+                  className={`flex-1 py-2 px-4 rounded-md text-center font-medium ${
+                    addForm.type === 'expense'
+                      ? 'bg-red-100 text-red-800 border border-red-200'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  } transition-colors duration-150`}
+                >
+                  Expense
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAddTypeChange('income')}
+                  className={`flex-1 py-2 px-4 rounded-md text-center font-medium ${
+                    addForm.type === 'income'
+                      ? 'bg-green-100 text-green-800 border border-green-200'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  } transition-colors duration-150`}
+                >
+                  Income
+                </button>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Amount</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <span className="text-gray-500 sm:text-sm">₱</span>
+                  </div>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    value={addForm.amount}
+                    onChange={(e) => setAddForm({ ...addForm, amount: e.target.value })}
+                    className="block w-full pl-8 rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 sm:text-sm p-2 border"
+                    required
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Account</label>
+                <select
+                  value={addForm.account_id}
+                  onChange={(e) => setAddForm({ ...addForm, account_id: e.target.value })}
+                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 sm:text-sm p-2 border"
+                  required
+                >
+                  <option value="">Select an account</option>
+                  {accounts.map((account) => (
+                    <option key={account.id} value={account.id}>
+                      {account.emoji && `${account.emoji} `}
+                      {account.name} ({account.type})
+                    </option>
+                  ))}
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                <select
+                  value={addForm.category_id}
+                  onChange={(e) => setAddForm({ ...addForm, category_id: e.target.value })}
+                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 sm:text-sm p-2 border"
+                  required
+                >
+                  <option value="">Select a category</option>
+                  {(addForm.type === 'expense' ? categories.expense : categories.income).map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.icon && `${category.icon} `}
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                <input
+                  type="date"
+                  value={addForm.date}
+                  onChange={(e) => setAddForm({ ...addForm, date: e.target.value })}
+                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 sm:text-sm p-2 border"
+                  required
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Note</label>
+                <textarea
+                  value={addForm.note}
+                  onChange={(e) => setAddForm({ ...addForm, note: e.target.value })}
+                  rows={3}
+                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 sm:text-sm p-2 border"
+                  placeholder="Add a note (optional)"
+                />
+              </div>
+              
+              <div className="flex justify-end space-x-3">
+                <button
+                  type="button"
+                  onClick={() => { setShowAddModal(false); setAddError(''); }}
+                  className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 transition-colors duration-150"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 disabled:opacity-50 transition-colors duration-150"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  {saving ? 'Adding...' : 'Add Entry'}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 

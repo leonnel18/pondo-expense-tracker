@@ -17,7 +17,7 @@ const RecentEntries = ({ entries, onEdit, onDelete }) => {
       <div className="text-center p-8 border border-gray-200 rounded-lg">
         <p className="text-gray-500">No recent entries</p>
         <button
-          onClick={() => navigate('/entries/add')}
+          onClick={() => navigate('/entries')}
           className="mt-2 inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md text-brand-600 hover:text-brand-700 focus:outline-none transition-colors duration-150"
         >
           Add your first entry

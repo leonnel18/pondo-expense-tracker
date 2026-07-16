@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getDashboard } from '../lib/api';
+import { useAuth } from '../contexts/AuthContext';
 import BalanceHero from '../components/dashboard/BalanceHero';
 import QuickAdd from '../components/dashboard/QuickAdd';
 import AccountSummary from '../components/dashboard/AccountSummary';
@@ -11,6 +12,7 @@ import FilterPanel from '../components/dashboard/FilterPanel';
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const { user } = useAuth(); // refetch when auth state changes (logout→login)
   const [dashboardData, setDashboardData] = useState({
     kpi: {
       total_income: 0,
@@ -30,7 +32,7 @@ const Dashboard = () => {
 
   useEffect(() => {
     fetchDashboardData();
-  }, [filters]);
+  }, [filters, user]); // refetch on filter change AND on auth state change
 
   const fetchDashboardData = async () => {
     try {

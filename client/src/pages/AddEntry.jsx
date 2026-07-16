@@ -25,19 +25,25 @@ const AddEntry = () => {
 
   const fetchData = async () => {
     try {
-      const [accountsData, expenseCategories, incomeCategories] = await Promise.all([
+      const results = await Promise.allSettled([
         getAccounts(),
         getCategories('expense'),
         getCategories('income')
       ]);
       
-      setAccounts(accountsData);
-      setCategories({ expense: expenseCategories, income: incomeCategories });
+      const [accountsResult, expenseResult, incomeResult] = results;
       
-      // Set default account if there's only one
-      if (accountsData.length === 1) {
-        setForm(prev => ({ ...prev, account_id: accountsData[0].id }));
+      if (accountsResult.status === 'fulfilled') {
+        setAccounts(accountsResult.value);
+        // Set default account if there's only one
+        if (accountsResult.value.length === 1) {
+          setForm(prev => ({ ...prev, account_id: accountsResult.value[0].id }));
+        }
       }
+      
+      const expenseCategories = expenseResult.status === 'fulfilled' ? expenseResult.value : [];
+      const incomeCategories = incomeResult.status === 'fulfilled' ? incomeResult.value : [];
+      setCategories({ expense: expenseCategories, income: incomeCategories });
       
       // Set default category if there's only one in the selected type
       if (form.type === 'expense' && expenseCategories.length === 1) {

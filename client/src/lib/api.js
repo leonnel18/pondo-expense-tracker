@@ -45,6 +45,9 @@ const apiRequest = async (endpoint, options = {}) => {
       });
 
       if (refreshRes.ok) {
+        // Small delay to let the browser process Set-Cookie headers
+        // from the refresh response before retrying.
+        await new Promise(r => setTimeout(r, 50));
         // Retry the original request
         response = await fetch(url, config);
       }

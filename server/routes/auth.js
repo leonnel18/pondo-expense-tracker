@@ -11,8 +11,8 @@ const setAuthCookies = (res, session) => {
   const accessTokenExpiresIn = session.expires_in || 3600; // seconds
   const accessTokenMaxAge = accessTokenExpiresIn * 1000; // milliseconds
   
-  // Refresh token expiry (7 days per NFR-A2)
-  const refreshTokenMaxAge = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
+  // Refresh token expiry (30 days per NFR-A2)
+  const refreshTokenMaxAge = 30 * 24 * 60 * 60 * 1000; // 30 days in milliseconds
   
   const cookieOptions = {
     httpOnly: true,

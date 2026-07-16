@@ -39,7 +39,7 @@ const Header = ({ onMenuToggle }) => {
         <div className="flex items-center space-x-4">
           {showAddEntryButton && (
             <Link
-              to="/entries/add"
+              to="/entries"
               className="bg-brand-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-brand-700 flex items-center"
             >
               <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">

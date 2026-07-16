@@ -67,6 +67,7 @@ const EmojiPicker = ({ selectedEmoji, onEmojiSelect, label = "Select Emoji" }) =
         </span>
         {selectedEmoji && (
           <button
+            type="button"
             onClick={handleClear}
             className="text-sm text-red-600 hover:text-red-800 flex items-center"
           >
@@ -79,6 +80,7 @@ const EmojiPicker = ({ selectedEmoji, onEmojiSelect, label = "Select Emoji" }) =
       <div className="grid grid-cols-8 gap-2 p-2 border border-gray-200 rounded-lg max-h-40 overflow-y-auto">
         {filteredEmojis.map((emoji, index) => (
           <button
+            type="button"
             key={index}
             onClick={() => handleEmojiSelect(emoji)}
             className={`p-2 text-2xl rounded-md hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-1 ${

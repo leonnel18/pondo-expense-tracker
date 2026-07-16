@@ -968,7 +968,7 @@ const getDashboardKPIs = async (from, to) => {
   return {
     total_income: totalIncome,
     total_expense: totalExpense,
-    net,
+    net_balance: net,
     total_balance: totalBalance
   };
 };

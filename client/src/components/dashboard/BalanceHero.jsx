@@ -1,11 +1,13 @@
 import React from 'react';
 
 const BalanceHero = ({ kpi }) => {
+  // Format currency — coerce null/undefined/NaN to 0 to avoid "₱NaN"
   const formatCurrency = (amount) => {
+    const safe = (amount == null || Number.isNaN(amount)) ? 0 : amount;
     return new Intl.NumberFormat('en-PH', {
       style: 'currency',
       currency: 'PHP'
-    }).format(amount);
+    }).format(safe);
   };
 
   return (
