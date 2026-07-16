@@ -193,6 +193,11 @@ export const deleteEntry = (id) => {
   });
 };
 
+// Tag API
+export const getTags = (q) => apiRequest(`/tags${q ? `?q=${encodeURIComponent(q)}` : ''}`);
+export const createTag = (name) => apiRequest('/tags', { method: 'POST', body: JSON.stringify({ name }) });
+export const deleteTag = (id) => apiRequest(`/tags/${id}`, { method: 'DELETE' });
+
 // Dashboard API
 export const getDashboard = (from, to) => {
   const params = new URLSearchParams();

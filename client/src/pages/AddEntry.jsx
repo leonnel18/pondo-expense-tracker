@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Plus } from 'lucide-react';
 import { getAccounts, getCategories, createEntry } from '../lib/api';
+import TagInput from '../components/entries/TagInput';
 
 const AddEntry = () => {
   const navigate = useNavigate();
@@ -15,6 +16,7 @@ const AddEntry = () => {
     note: '',
     date: new Date().toISOString().split('T')[0]
   });
+  const [selectedTags, setSelectedTags] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -76,7 +78,8 @@ const AddEntry = () => {
         account_id: parseInt(form.account_id, 10),
         category_id: parseInt(form.category_id, 10),
         note: form.note,
-        date: form.date
+        date: form.date,
+        tag_ids: selectedTags.map(t => t.id)
       });
       
       // Reset form but keep type and date
@@ -87,6 +90,7 @@ const AddEntry = () => {
         category_id: '',
         note: ''
       }));
+      setSelectedTags([]);
       
       alert('Entry added successfully!');
     } catch (err) {
@@ -217,6 +221,8 @@ const AddEntry = () => {
                   ))}
                 </select>
               </div>
+              
+              <TagInput value={selectedTags} onChange={setSelectedTags} />
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">

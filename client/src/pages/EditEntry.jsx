@@ -4,6 +4,7 @@ import { getEntry, updateEntry, getCategories, getAccounts } from '../lib/api';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import Select from '../components/ui/Select';
+import TagInput from '../components/entries/TagInput';
 
 const EditEntry = () => {
   const navigate = useNavigate();
@@ -27,6 +28,7 @@ const EditEntry = () => {
     account_id: '',
     note: ''
   });
+  const [selectedTags, setSelectedTags] = useState([]);
 
   // Fetch entry details
   useEffect(() => {
@@ -56,6 +58,7 @@ const EditEntry = () => {
           account_id: entry.account_id.toString(),
           note: entry.note || ''
         });
+        setSelectedTags(entry.tags || []);
       } catch (err) {
         setError(err.message);
       } finally {
@@ -99,7 +102,8 @@ const EditEntry = () => {
         ...formData,
         amount: parseFloat(formData.amount),
         category_id: parseInt(formData.category_id),
-        account_id: parseInt(formData.account_id)
+        account_id: parseInt(formData.account_id),
+        tag_ids: selectedTags.map(t => t.id)
       };
       
       await updateEntry(id, entryData);
@@ -297,6 +301,11 @@ const EditEntry = () => {
                 className="block w-full px-4 py-2.5 border border-neutral-200 rounded-md shadow-sm focus:ring-brand-500 focus:border-brand-500 transition-colors"
                 placeholder="Add a note about this entry..."
               />
+            </div>
+
+            {/* Tags */}
+            <div className="md:col-span-2">
+              <TagInput value={selectedTags} onChange={setSelectedTags} />
             </div>
           </div>
 

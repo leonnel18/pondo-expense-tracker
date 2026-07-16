@@ -5,6 +5,7 @@ import { getEntries, getAccounts, getCategories, deleteEntry, exportEntries, cre
 import { useAuth } from '../contexts/AuthContext';
 import FilterPanel from '../components/dashboard/FilterPanel';
 import CalendarView from '../components/entries/CalendarView';
+import TagInput from '../components/entries/TagInput';
 
 const Entries = () => {
   const navigate = useNavigate();
@@ -47,6 +48,7 @@ const Entries = () => {
   });
   const [saving, setSaving] = useState(false);
   const [addError, setAddError] = useState('');
+  const [addTags, setAddTags] = useState([]);
 
   useEffect(() => {
     fetchData();
@@ -165,7 +167,8 @@ const Entries = () => {
         account_id: parseInt(addForm.account_id, 10),
         category_id: parseInt(addForm.category_id, 10),
         note: addForm.note,
-        date: addForm.date
+        date: addForm.date,
+        tag_ids: addTags.map(t => t.id)
       });
       
       // Reset form but keep type and date
@@ -176,6 +179,7 @@ const Entries = () => {
         category_id: '',
         note: ''
       }));
+      setAddTags([]);
       
       setShowAddModal(false);
       fetchEntries();
@@ -333,6 +337,9 @@ const Entries = () => {
                     Category
                   </th>
                   <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                    Tags
+                  </th>
+                  <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
                     Account
                   </th>
                   <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
@@ -361,6 +368,21 @@ const Entries = () => {
                           <span className="text-gray-500">Transfer</span>
                         ) : (
                           entry.category_name
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-3 py-4 text-sm text-gray-500">
+                      <div className="flex flex-wrap items-center gap-1">
+                        {(entry.tags || []).slice(0, 3).map((tag) => (
+                          <span key={tag.id} className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium border border-brand-300 text-brand-700 bg-brand-50">
+                            {tag.name}
+                          </span>
+                        ))}
+                        {(entry.tags || []).length > 3 && (
+                          <span className="text-xs text-gray-400">+{entry.tags.length - 3} more</span>
+                        )}
+                        {(!entry.tags || entry.tags.length === 0) && (
+                          <span className="text-xs text-gray-300">—</span>
                         )}
                       </div>
                     </td>
@@ -569,6 +591,8 @@ const Entries = () => {
                   ))}
                 </select>
               </div>
+              
+              <TagInput value={addTags} onChange={setAddTags} />
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
