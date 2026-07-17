@@ -11,7 +11,7 @@ const FilterPanel = ({
   showDateFilters = true, 
   showSearch = true 
 }) => {
-  const [isOpen, setIsOpen] = useState(true);
+  const [isOpen, setIsOpen] = useState(false);
 
   const handleInputChange = (field, value) => {
     onFilterChange({ ...filters, [field]: value });

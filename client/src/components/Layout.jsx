@@ -26,8 +26,11 @@ const Layout = () => {
         const status = await getSystemStatus();
         setIsFirstLaunch(status.first_launch);
         
-        // Show welcome banner for new users
-        if (status.first_launch) {
+        // Show welcome banner only for genuinely new users with no data yet.
+        // Checking has_entries in addition to first_launch prevents showing the
+        // banner to returning users whose first_launch flag was never cleared
+        // but who already have entries.
+        if (status.first_launch && !status.has_entries) {
           setShowWelcome(true);
         }
 

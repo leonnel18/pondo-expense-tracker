@@ -996,7 +996,7 @@ const getDashboardKPIs = async (from, to) => {
     .from('accounts')
     .select(`
       id, type,
-      entries(type, amount)
+      entries(type, amount, deleted_at)
     `)
     .is('deleted_at', null);  // Add deleted_at filter for soft-delete
 
@@ -1009,20 +1009,12 @@ const getDashboardKPIs = async (from, to) => {
   // Calculate total balance across all accounts
   let totalBalance = 0;
   accountsData.forEach(account => {
-    // Filter entries by date if specified
-    let accountEntries = account.entries;
-    if (from || to) {
-      accountEntries = account.entries.filter(entry => {
-        const entryDate = new Date(entry.date);
-        const fromDate = from ? new Date(from) : null;
-        const toDate = to ? new Date(to) : null;
-        
-        return (!fromDate || entryDate >= fromDate) && (!toDate || entryDate <= toDate);
-      });
-    }
-    
-    // Add JS filter for soft-deleted entries
-    accountEntries = accountEntries.filter(e => !e.deleted_at);
+    // Total balance is an all-time running figure (like a bank statement),
+    // NOT a period metric. Do NOT apply the from/to date window here —
+    // only filter out soft-deleted entries. This matches getAccountBalance()
+    // (line ~185) and getDashboardAccounts() (called with no from/to) which
+    // both correctly skip date-filtering for balance calculations.
+    const accountEntries = account.entries.filter(e => !e.deleted_at);
     
     // Calculate account balance
     const totalIncome = accountEntries

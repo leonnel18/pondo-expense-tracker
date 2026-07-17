@@ -45,16 +45,11 @@ router.get('/status', async (req, res, next) => {
     
     const hasUsers = userCount > 0;
 
-    let hasAccounts = false;
-    let hasEntries = false;
+    const accounts = await getAccounts();
+    const hasAccounts = accounts.length > 0;
 
-    if (firstLaunchCompleted) {
-      const accounts = await getAccounts();
-      hasAccounts = accounts.length > 0;
-
-      const entryCount = await getEntryCount();
-      hasEntries = entryCount > 0;
-    }
+    const entryCount = await getEntryCount();
+    const hasEntries = entryCount > 0;
 
     res.json({
       first_launch: !firstLaunchCompleted,
