@@ -88,7 +88,16 @@ router.put('/settings', async (req, res, next) => {
     const { last_used_account_id, calendar_view_tooltip_dismissed } = req.body;
 
     if (last_used_account_id !== undefined) {
-      await setSetting('last_used_account_id', last_used_account_id.toString());
+      const normalizedAccountId = parseInt(last_used_account_id, 10);
+      if (isNaN(normalizedAccountId)) {
+        return res.status(400).json({
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'last_used_account_id must be a valid integer',
+          },
+        });
+      }
+      await setSetting('last_used_account_id', normalizedAccountId.toString());
     }
 
     if (calendar_view_tooltip_dismissed !== undefined) {

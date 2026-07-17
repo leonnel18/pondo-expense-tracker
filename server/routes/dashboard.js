@@ -7,7 +7,8 @@ const {
   getExpenseBreakdown,
   getIncomeBreakdown,
   getDashboardAccounts,
-  getRecentEntries
+  getRecentEntries,
+  logAppEvent
 } = require('../db/queries');
 const { validate } = require('../middleware/validate');
 
@@ -49,6 +50,9 @@ router.get('/', validate(z.object({
 
     // Include total_balance in the response
     const { total_balance } = kpi;
+
+    // Fire-and-forget event log (US-27) — never awaited, never blocks/fails this request
+    logAppEvent('dashboard_viewed', { from, to });
 
     res.json({
       period: { from, to },

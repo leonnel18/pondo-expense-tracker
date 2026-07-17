@@ -1387,6 +1387,24 @@ const getAllSettings = async () => {
   return settings;
 };
 
+// App events (US-27) — minimal, fire-and-forget event log.
+// Never throws: a logging failure must never block or fail the
+// user-facing request that triggered it. Callers should invoke this
+// without awaiting it (or await it but ignore the result either way).
+const logAppEvent = async (eventType, metadata = null) => {
+  try {
+    const { error } = await supabase
+      .from('app_events')
+      .insert({ event_type: eventType, metadata });
+
+    if (error) {
+      console.error('logAppEvent failed:', eventType, error.message);
+    }
+  } catch (err) {
+    console.error('logAppEvent failed:', eventType, err.message);
+  }
+};
+
 // New function for settings
 const getEntryCount = async (filters = {}) => {
   let query = supabase
@@ -2420,6 +2438,9 @@ module.exports = {
   setSetting,
   getAllSettings,
   getEntryCount,
+
+  // App events (US-27)
+  logAppEvent,
 
   // Recycle Bin functions
   getRecycleBin,

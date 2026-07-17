@@ -3,7 +3,8 @@ const router = express.Router();
 const { z } = require('zod');
 const {
   getEntriesForExport,
-  getAccountsForExport
+  getAccountsForExport,
+  logAppEvent
 } = require('../db/queries');
 const { validate } = require('../middleware/validate');
 
@@ -55,7 +56,10 @@ router.get('/entries', validate(exportEntriesSchema), async (req, res, next) => 
       csv += [entry.id, entry.type, entry.amount, entry.date, entry.category, entry.account, entry.note, entry.created_at, entry.updated_at]
         .map(csvField).join(',') + '\n';
     });
-    
+
+    // Fire-and-forget event log (US-27) — never awaited, never blocks/fails this request
+    logAppEvent('export_downloaded', { export_type: 'entries' });
+
     res.send(csv);
   } catch (error) {
     next(error);
@@ -78,7 +82,10 @@ router.get('/accounts', async (req, res, next) => {
     accounts.forEach(account => {
       csv += [account.id, account.name, account.type, account.description].map(csvField).join(',') + '\n';
     });
-    
+
+    // Fire-and-forget event log (US-27) — never awaited, never blocks/fails this request
+    logAppEvent('export_downloaded', { export_type: 'accounts' });
+
     res.send(csv);
   } catch (error) {
     next(error);

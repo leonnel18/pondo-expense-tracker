@@ -11,7 +11,8 @@ const {
   setSetting,
   getCategoryById,
   getAccountById,
-  getCalendarMonth
+  getCalendarMonth,
+  logAppEvent
 } = require('../db/queries');
 const { validate, createEntrySchema, updateEntrySchema, bulkDeleteEntriesSchema, calendarQuerySchema } = require('../middleware/validate');
 // Local YYYY-MM-DD string, avoids the UTC-vs-local mismatch from Date parsing
@@ -169,6 +170,9 @@ router.post('/', validate(createEntrySchema), async (req, res, next) => {
 
     // Update last used account setting
     await setSetting('last_used_account_id', String(accountId));
+
+    // Fire-and-forget event log (US-27) — never awaited, never blocks/fails this request
+    logAppEvent('entry_created', { type: entry.type });
 
     res.status(201).json({ entry });
   } catch (error) {
