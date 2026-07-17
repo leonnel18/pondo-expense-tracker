@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const supabase = require('../db/supabase');
+const authMiddleware = require('../middleware/auth');
 
 // Helper function to set auth cookies
 const setAuthCookies = (res, session) => {
@@ -161,7 +162,11 @@ router.post('/signout', async (req, res, next) => {
 });
 
 // GET /api/auth/me
-router.get('/me', async (req, res, next) => {
+// This route is mounted at /api/auth, which the global auth-middleware
+// wrapper in server.js deliberately skips (signup/signin/signout/refresh
+// must stay public) — so /me needs authMiddleware applied directly, or
+// req.user is never populated and this always 401s regardless of cookie validity.
+router.get('/me', authMiddleware, async (req, res, next) => {
     try {
         // req.user is populated by the auth middleware
         if (!req.user) {
