@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getTagsReport } from '../lib/api';
+import { usePrivacy } from '../contexts/PrivacyContext';
+import { MASK_PLACEHOLDER } from '../lib/mask';
 
-const formatCurrency = (amount) => {
+const formatCurrency = (amount, masked) => {
+  if (masked) return MASK_PLACEHOLDER;
   return new Intl.NumberFormat('en-PH', {
     style: 'currency',
     currency: 'PHP',
@@ -27,6 +30,7 @@ const TAG_COLORS = [
 
 const TagsReport = () => {
   const navigate = useNavigate();
+  const { masked } = usePrivacy();
   const [report, setReport] = useState({ from: '', to: '', tags: [] });
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
@@ -141,7 +145,7 @@ const TagsReport = () => {
                         {tag.entry_count} {tag.entry_count === 1 ? 'entry' : 'entries'}
                       </span>
                       <span className="text-sm font-medium text-gray-900">
-                        {formatCurrency(tag.total_amount)}
+                        {formatCurrency(tag.total_amount, masked)}
                       </span>
                     </div>
                   </div>

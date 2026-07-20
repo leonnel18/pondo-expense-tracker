@@ -50,10 +50,10 @@ router.get('/entries', validate(exportEntriesSchema), async (req, res, next) => 
     res.setHeader('Content-Disposition', `attachment; filename="entries_export_${now}.csv"`);
     
     // Create CSV content
-    let csv = 'ID,Type,Amount,Date,Category,Account,Note,Created At,Updated At\n';
+    let csv = 'ID,Type,Amount,Date,Category,Account,Note,Created At,Updated At,Pending,Tags\n';
     
     entries.forEach(entry => {
-      csv += [entry.id, entry.type, entry.amount, entry.date, entry.category, entry.account, entry.note, entry.created_at, entry.updated_at]
+      csv += [entry.id, entry.type, entry.amount, entry.date, entry.category_name, entry.account_name, entry.note, entry.created_at, entry.updated_at, entry.pending ? 'Yes' : 'No', entry.tags || '']
         .map(csvField).join(',') + '\n';
     });
 

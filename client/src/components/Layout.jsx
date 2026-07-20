@@ -5,6 +5,8 @@ import { useAuth } from '../contexts/AuthContext';
 import Sidebar from './Sidebar';
 import Header from './Header';
 import BottomNav from './BottomNav';
+import FloatingActionButton from './FloatingActionButton';
+import AddEntryModal from './entries/AddEntryModal';
 
 const Layout = () => {
   const [isLoading, setIsLoading] = useState(true);
@@ -138,6 +140,8 @@ const Layout = () => {
           <Outlet />
         </main>
         <BottomNav />
+        <FloatingActionButton />
+        <AddEntryModal />
       </div>
     </div>
   );

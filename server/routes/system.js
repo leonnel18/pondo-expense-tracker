@@ -69,7 +69,7 @@ router.get('/settings', async (req, res, next) => {
     const result = {};
     
     // Filter to only include the specific settings we want
-    const keysToInclude = ['last_used_account_id', 'first_launch_completed', 'calendar_view_tooltip_dismissed'];
+    const keysToInclude = ['last_used_account_id', 'first_launch_completed', 'calendar_view_tooltip_dismissed', 'privacy_mask_enabled'];
     keysToInclude.forEach(key => {
       if (allSettings[key] !== undefined) {
         result[key] = allSettings[key];
@@ -85,7 +85,7 @@ router.get('/settings', async (req, res, next) => {
 // PUT /api/settings
 router.put('/settings', async (req, res, next) => {
   try {
-    const { last_used_account_id, calendar_view_tooltip_dismissed } = req.body;
+    const { last_used_account_id, calendar_view_tooltip_dismissed, privacy_mask_enabled } = req.body;
 
     if (last_used_account_id !== undefined) {
       const normalizedAccountId = parseInt(last_used_account_id, 10);
@@ -104,11 +104,15 @@ router.put('/settings', async (req, res, next) => {
       await setSetting('calendar_view_tooltip_dismissed', calendar_view_tooltip_dismissed.toString());
     }
 
+    if (privacy_mask_enabled !== undefined) {
+      await setSetting('privacy_mask_enabled', privacy_mask_enabled.toString());
+    }
+
     const allSettings = await getAllSettings();
     const result = {};
 
     // Filter to only include the specific settings we want
-    const keysToInclude = ['last_used_account_id', 'first_launch_completed', 'calendar_view_tooltip_dismissed'];
+    const keysToInclude = ['last_used_account_id', 'first_launch_completed', 'calendar_view_tooltip_dismissed', 'privacy_mask_enabled'];
     keysToInclude.forEach(key => {
       if (allSettings[key] !== undefined) {
         result[key] = allSettings[key];

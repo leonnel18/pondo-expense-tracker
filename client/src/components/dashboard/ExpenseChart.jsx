@@ -1,9 +1,14 @@
 import React from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend } from 'recharts';
+import { usePrivacy } from '../../contexts/PrivacyContext';
+import { MASK_PLACEHOLDER } from '../../lib/mask';
 
 const ExpenseChart = ({ data }) => {
+  const { masked } = usePrivacy();
+
   // Format currency
   const formatCurrency = (amount) => {
+    if (masked) return MASK_PLACEHOLDER;
     return new Intl.NumberFormat('en-PH', {
       style: 'currency',
       currency: 'PHP',

@@ -7,9 +7,21 @@ const {
   createAccount,
   updateAccount,
   deleteAccount,
-  deleteEntriesByAccount
+  deleteEntriesByAccount,
+  getAccountBalance,
+  getBalanceAdjustmentCategory,
+  createEntry,
+  logAppEvent
 } = require('../db/queries');
-const { validate } = require('../middleware/validate');
+const { validate, reconcileAccountSchema } = require('../middleware/validate');
+const { computeReconciliationEntry } = require('../lib/reconciliation');
+
+// Local YYYY-MM-DD string, avoids the UTC-vs-local mismatch from Date parsing
+const getTodayDateString = () => {
+  const now = new Date();
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+};
 
 // Get all accounts
 router.get('/', async (req, res, next) => {
@@ -106,6 +118,63 @@ router.delete('/:id', async (req, res, next) => {
       id: deletedAccount.id,
       deleted_at: deletedAccount.deleted_at,
       entries_soft_deleted: result.soft_deleted
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /api/accounts/:id/reconcile — US-03 balance reconciliation
+router.post('/:id/reconcile', validate(reconcileAccountSchema), async (req, res, next) => {
+  try {
+    const id = req.params.id;
+    const account = await getAccountById(id);
+    if (!account) {
+      return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Account not found' } });
+    }
+
+    const previousBalance = await getAccountBalance(id);
+    const adjustment = computeReconciliationEntry(account.type, previousBalance, req.body.actual_balance);
+
+    if (!adjustment) {
+      return res.status(200).json({
+        reconciled: true,
+        adjustment_created: false,
+        previous_balance: previousBalance,
+        new_balance: previousBalance,
+        delta: 0
+      });
+    }
+
+    const category = await getBalanceAdjustmentCategory(adjustment.type);
+    if (!category) {
+      const err = new Error('Balance Adjustment category is missing. Contact support.');
+      err.status = 500;
+      err.code = 'MISSING_SYSTEM_CATEGORY';
+      throw err;
+    }
+
+    const entry = await createEntry({
+      type: adjustment.type,
+      amount: adjustment.amount,
+      account_id: Number(id),
+      category_id: category.id,
+      note: 'Balance reconciliation',
+      date: getTodayDateString(),
+    });
+
+    const newBalance = await getAccountBalance(id);
+
+    // Fire-and-forget event log (US-27) — never awaited, never blocks/fails this request
+    logAppEvent('balance_reconciled', { account_type: account.type, delta: req.body.actual_balance - previousBalance });
+
+    res.status(201).json({
+      reconciled: true,
+      adjustment_created: true,
+      entry,
+      previous_balance: previousBalance,
+      new_balance: newBalance,
+      delta: req.body.actual_balance - previousBalance,
     });
   } catch (error) {
     next(error);

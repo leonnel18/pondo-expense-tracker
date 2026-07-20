@@ -2,8 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Edit, Trash2, RefreshCw } from 'lucide-react';
 import { getBudgets, createBudget, updateBudget, deleteBudget } from '../lib/api';
 import { getCategories } from '../lib/api';
+import { usePrivacy } from '../contexts/PrivacyContext';
+import { MASK_PLACEHOLDER } from '../lib/mask';
 
-const formatCurrency = (amount) => {
+const formatCurrency = (amount, masked) => {
+  if (masked) return MASK_PLACEHOLDER;
   return new Intl.NumberFormat('en-PH', {
     style: 'currency',
     currency: 'PHP'
@@ -24,6 +27,7 @@ const getCycleLabel = (cycle) => {
 };
 
 const Budgets = () => {
+  const { masked } = usePrivacy();
   const [budgets, setBudgets] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -315,7 +319,7 @@ const Budgets = () => {
                 <div className="min-w-0">
                   <span className="font-medium text-gray-900 block truncate">{budget.category_name}</span>
                   <p className="text-sm text-gray-500 mt-1">
-                    {formatCurrency(budget.amount)} · {getCycleLabel(budget.cycle)}
+                    {formatCurrency(budget.amount, masked)} · {getCycleLabel(budget.cycle)}
                   </p>
                   <p className="text-xs text-gray-400">
                     {formatDate(budget.cycle_start)}

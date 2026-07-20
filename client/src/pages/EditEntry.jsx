@@ -56,7 +56,8 @@ const EditEntry = () => {
           date: entry.date,
           category_id: entry.category_id.toString(),
           account_id: entry.account_id.toString(),
-          note: entry.note || ''
+          note: entry.note || '',
+          pending: entry.pending || false
         });
         setSelectedTags(entry.tags || []);
       } catch (err) {
@@ -71,10 +72,11 @@ const EditEntry = () => {
 
   // Handle form input changes
   const handleInputChange = (e) => {
-    const { name, value } = e.target;
+    const { name, value, type, checked } = e.target;
+    const val = type === 'checkbox' ? checked : value;
     setFormData(prev => ({
       ...prev,
-      [name]: value
+      [name]: val
     }));
     
     // If changing type, update category to first of that type
@@ -306,6 +308,20 @@ const EditEntry = () => {
             {/* Tags */}
             <div className="md:col-span-2">
               <TagInput value={selectedTags} onChange={setSelectedTags} />
+            </div>
+
+            {/* Pending checkbox (US-04) */}
+            <div className="md:col-span-2">
+              <label className="flex items-center space-x-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  name="pending"
+                  checked={formData.pending || false}
+                  onChange={handleInputChange}
+                  className="h-4 w-4 text-brand-600 focus:ring-brand-500 border-neutral-200 rounded"
+                />
+                <span className="text-sm text-neutral-700">Mark as pending</span>
+              </label>
             </div>
           </div>
 

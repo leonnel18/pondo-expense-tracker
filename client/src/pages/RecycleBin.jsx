@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { RefreshCw, RotateCcw } from 'lucide-react';
 import { getRecycleBin, restoreItem } from '../lib/api';
+import { usePrivacy } from '../contexts/PrivacyContext';
+import { MASK_PLACEHOLDER } from '../lib/mask';
 
 const RecycleBin = () => {
+  const { masked } = usePrivacy();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -166,7 +169,11 @@ const RecycleBin = () => {
                       </span>
                     </td>
                     <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                      <div className="font-medium text-gray-900">{item.label}</div>
+                      <div className="font-medium text-gray-900">
+                        {item.type === 'entry' && item.amount !== undefined
+                          ? `${item.note || 'Untitled'} — ${masked ? MASK_PLACEHOLDER : `₱${item.amount.toLocaleString()}`}`
+                          : item.label}
+                      </div>
                       {item.account_name && (
                         <div className="text-gray-500 text-xs">Account: {item.account_name}</div>
                       )}

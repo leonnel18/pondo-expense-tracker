@@ -28,6 +28,7 @@ const createEntrySchema = z.object({
     note: z.string().max(500).optional(),
     date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
     tag_ids: z.array(z.number().int().positive()).optional(),
+    pending: z.boolean().optional(),  // US-04: optional pending flag at creation
   }),
 });
 
@@ -40,6 +41,7 @@ const updateEntrySchema = z.object({
     note: z.string().max(500).optional(),
     date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
     tag_ids: z.array(z.number().int().positive()).optional(),
+    pending: z.boolean().optional(),  // US-04: optional pending flag at update
   }),
   params: z.object({
     id: z.string().regex(/^\d+$/),
@@ -202,6 +204,14 @@ const updateRecurrenceSchema = z.object({
   }),
 });
 
+// Reconciliation schema (US-03, v1.2)
+const reconcileAccountSchema = z.object({
+  body: z.object({
+    actual_balance: z.number(), // signed — negative is valid for credit/lent "amount owed" accounts
+  }),
+  params: z.object({ id: z.string().regex(/^\d+$/) }),
+});
+
 module.exports = {
   validate,
   createEntrySchema,
@@ -214,4 +224,5 @@ module.exports = {
   updateBudgetSchema,
   createRecurrenceSchema,
   updateRecurrenceSchema,
+  reconcileAccountSchema,
 };

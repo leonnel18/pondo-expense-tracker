@@ -1,8 +1,13 @@
 import React from 'react';
+import { usePrivacy } from '../../contexts/PrivacyContext';
+import { MASK_PLACEHOLDER } from '../../lib/mask';
 
 const KpiCard = ({ title, value, change, direction, subtitle, isIncome }) => {
+  const { masked } = usePrivacy();
+
   // Format currency — coerce null/undefined/NaN to 0 to avoid "₱NaN"
   const formatCurrency = (amount) => {
+    if (masked) return MASK_PLACEHOLDER;
     const safe = (amount == null || Number.isNaN(amount)) ? 0 : amount;
     return new Intl.NumberFormat('en-PH', {
       style: 'currency',

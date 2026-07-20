@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Edit, Trash2 } from 'lucide-react';
-import { getAccounts, deleteAccount } from '../lib/api';
+import { Plus, Edit, Trash2, Scale } from 'lucide-react';
+import { getAccounts, deleteAccount, getAccount, reconcileAccount } from '../lib/api';
+import ReconcileModal from '../components/accounts/ReconcileModal';
 
 const Accounts = () => {
   const navigate = useNavigate();
   const [accounts, setAccounts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [reconcilingAccount, setReconcilingAccount] = useState(null);
 
   useEffect(() => {
     fetchAccounts();
@@ -35,6 +37,12 @@ const Accounts = () => {
     } catch (err) {
       setError('Failed to delete account: ' + err.message);
     }
+  };
+
+  const handleReconcile = async (accountId, actualBalance) => {
+    const result = await reconcileAccount(accountId, actualBalance);
+    fetchAccounts();
+    return result;
   };
 
   const getAccountTypeLabel = (type) => {
@@ -106,6 +114,21 @@ const Accounts = () => {
                 </div>
                 <div className="flex space-x-2">
                   <button
+                    onClick={() => {
+                      // Fetch full account details (including balance) for the modal
+                      getAccount(account.id).then((data) => {
+                        setReconcilingAccount(data);
+                      }).catch(() => {
+                        setError('Failed to load account details');
+                      });
+                    }}
+                    className="p-1 text-gray-500 hover:text-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-500 rounded transition-colors duration-150"
+                    aria-label="Reconcile balance"
+                    title="Reconcile balance"
+                  >
+                    <Scale className="h-4 w-4" />
+                  </button>
+                  <button
                     onClick={() => navigate(`/accounts/${account.id}/edit`)}
                     className="p-1 text-gray-500 hover:text-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-500 rounded transition-colors duration-150"
                     aria-label="Edit account"
@@ -131,6 +154,13 @@ const Accounts = () => {
           ))}
         </div>
       )}
+
+      <ReconcileModal
+        isOpen={!!reconcilingAccount}
+        onClose={() => setReconcilingAccount(null)}
+        account={reconcilingAccount}
+        onReconciled={handleReconcile}
+      />
 
     </div>
   );

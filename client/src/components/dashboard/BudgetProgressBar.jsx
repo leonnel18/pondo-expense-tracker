@@ -1,6 +1,9 @@
 import React from 'react';
+import { usePrivacy } from '../../contexts/PrivacyContext';
+import { MASK_PLACEHOLDER } from '../../lib/mask';
 
-const formatCurrency = (amount) => {
+const formatCurrency = (amount, masked) => {
+  if (masked) return MASK_PLACEHOLDER;
   return new Intl.NumberFormat('en-PH', {
     style: 'currency',
     currency: 'PHP'
@@ -36,6 +39,7 @@ const BudgetProgressBar = ({
   current_cycle_start,
   current_cycle_end
 }) => {
+  const { masked } = usePrivacy();
   const barColor = getBarColor(percent, category_color);
   const clampedWidth = Math.min(percent, 100);
 
@@ -75,11 +79,11 @@ const BudgetProgressBar = ({
       <p className="text-xs text-gray-600">
         {percent >= 100 ? (
           <span className="text-red-600 font-medium">
-            Overspent by {formatCurrency(Math.abs(remaining))}
+            Overspent by {formatCurrency(Math.abs(remaining), masked)}
           </span>
         ) : (
           <>
-            {formatCurrency(spend)} spent of {formatCurrency(amount)} · {formatCurrency(remaining)} remaining
+            {formatCurrency(spend, masked)} spent of {formatCurrency(amount, masked)} · {formatCurrency(remaining, masked)} remaining
           </>
         )}
       </p>

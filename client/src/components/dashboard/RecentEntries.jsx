@@ -2,10 +2,14 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { Pencil, Trash2 } from 'lucide-react';
+import { usePrivacy } from '../../contexts/PrivacyContext';
+import { MASK_PLACEHOLDER } from '../../lib/mask';
 
 const RecentEntries = ({ entries, onEdit, onDelete }) => {
   const navigate = useNavigate();
+  const { masked } = usePrivacy();
   const formatCurrency = (amount) => {
+    if (masked) return MASK_PLACEHOLDER;
     return new Intl.NumberFormat('en-PH', {
       style: 'currency',
       currency: 'PHP'
@@ -49,6 +53,11 @@ const RecentEntries = ({ entries, onEdit, onDelete }) => {
                 <h3 className="text-sm font-medium text-gray-900">{entry.category_name}</h3>
               </div>
               <div className="flex items-center mt-1">
+                {entry.pending && (
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-amber-50 border border-amber-200 text-amber-800 mr-2">
+                    Pending
+                  </span>
+                )}
                 {entry.account_emoji && (
                   <span className="text-sm mr-1">{entry.account_emoji}</span>
                 )}
@@ -61,7 +70,7 @@ const RecentEntries = ({ entries, onEdit, onDelete }) => {
               <p className={`text-sm font-medium ${
                 entry.type === 'income' ? 'text-green-600' : 'text-red-600'
               }`}>
-                {entry.type === 'income' ? '+' : '-'}{formatCurrency(entry.amount)}
+                {masked ? formatCurrency(entry.amount) : `${entry.type === 'income' ? '+' : '-'}${formatCurrency(entry.amount)}`}
               </p>
               <p className="text-xs text-gray-500">
                 {format(new Date(entry.date), 'MMM d, yyyy')}

@@ -1,8 +1,13 @@
 import React from 'react';
+import { usePrivacy } from '../../contexts/PrivacyContext';
+import { MASK_PLACEHOLDER } from '../../lib/mask';
 
 const BalanceHero = ({ kpi }) => {
+  const { masked } = usePrivacy();
+
   // Format currency — coerce null/undefined/NaN to 0 to avoid "₱NaN"
   const formatCurrency = (amount) => {
+    if (masked) return MASK_PLACEHOLDER;
     const safe = (amount == null || Number.isNaN(amount)) ? 0 : amount;
     return new Intl.NumberFormat('en-PH', {
       style: 'currency',
@@ -22,7 +27,7 @@ const BalanceHero = ({ kpi }) => {
           <div className="flex items-center justify-end">
             <span className="text-sm font-medium mr-2">This period:</span>
             <span className={`text-sm font-bold ${kpi.net_balance >= 0 ? 'text-green-300' : 'text-red-300'}`}>
-              {kpi.net_balance >= 0 ? '+' : ''}{formatCurrency(kpi.net_balance)}
+              {masked ? formatCurrency(kpi.net_balance) : `${kpi.net_balance >= 0 ? '+' : ''}${formatCurrency(kpi.net_balance)}`}
             </span>
           </div>
         </div>
@@ -40,7 +45,7 @@ const BalanceHero = ({ kpi }) => {
         <div className="bg-brand-500 bg-opacity-20 rounded-lg p-3">
           <p className="text-brand-100 text-sm">Net Balance</p>
           <p className={`font-bold text-lg ${kpi.net_balance >= 0 ? 'text-green-300' : 'text-red-300'}`}>
-            {kpi.net_balance >= 0 ? '+' : ''}{formatCurrency(kpi.net_balance)}
+            {masked ? formatCurrency(kpi.net_balance) : `${kpi.net_balance >= 0 ? '+' : ''}${formatCurrency(kpi.net_balance)}`}
           </p>
         </div>
       </div>

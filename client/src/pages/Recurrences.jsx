@@ -4,8 +4,11 @@ import {
   getRecurrences, createRecurrence, updateRecurrence, deleteRecurrence,
   archiveRecurrence, restoreRecurrence, getAccounts, getCategories
 } from '../lib/api';
+import { usePrivacy } from '../contexts/PrivacyContext';
+import { MASK_PLACEHOLDER } from '../lib/mask';
 
-const formatCurrency = (amount) => {
+const formatCurrency = (amount, masked) => {
+  if (masked) return MASK_PLACEHOLDER;
   return new Intl.NumberFormat('en-PH', {
     style: 'currency',
     currency: 'PHP'
@@ -39,6 +42,7 @@ const emptyForm = {
 };
 
 const Recurrences = () => {
+  const { masked } = usePrivacy();
   const [recurrences, setRecurrences] = useState([]);
   const [archived, setArchived] = useState([]);
   const [accounts, setAccounts] = useState([]);
@@ -363,7 +367,7 @@ const Recurrences = () => {
         <div className="min-w-0">
           <span className="font-medium text-gray-900 block truncate">{r.category_name}</span>
           <p className="text-sm text-gray-500 mt-1">
-            {formatCurrency(r.amount)} · {getModeLabel(r.mode)} · {getCycleLabel(r.cycle)}
+            {formatCurrency(r.amount, masked)} · {getModeLabel(r.mode)} · {getCycleLabel(r.cycle)}
           </p>
           <p className="text-xs text-gray-400">
             {r.mode === 'installment'

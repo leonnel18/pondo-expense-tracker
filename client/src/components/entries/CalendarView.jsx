@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { getCalendarMonth, getSettings, updateSettings } from '../../lib/api';
+import { usePrivacy } from '../../contexts/PrivacyContext';
+import { MASK_PLACEHOLDER } from '../../lib/mask';
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -13,7 +15,8 @@ const todayStr = () => {
   return `${y}-${m}-${day}`;
 };
 
-const formatNet = (amount) => {
+const formatNet = (amount, masked) => {
+  if (masked) return MASK_PLACEHOLDER;
   const safe = (amount == null || Number.isNaN(amount)) ? 0 : amount;
   const sign = safe > 0 ? '+' : '';
   return `${sign}${new Intl.NumberFormat('en-PH', {
@@ -30,6 +33,7 @@ const formatMonthLabel = (year, monthIdx) => {
 };
 
 const CalendarView = ({ onDayClick }) => {
+  const { masked } = usePrivacy();
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [monthIdx, setMonthIdx] = useState(now.getMonth()); // 0-based
@@ -254,7 +258,7 @@ const CalendarView = ({ onDayClick }) => {
                   )}
                 </div>
                 <div className={`mt-auto text-sm font-semibold ${netColor(dayData.net)}`}>
-                  {formatNet(dayData.net)}
+                  {formatNet(dayData.net, masked)}
                 </div>
               </button>
             );

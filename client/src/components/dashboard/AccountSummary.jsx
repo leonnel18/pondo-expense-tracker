@@ -1,9 +1,13 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { usePrivacy } from '../../contexts/PrivacyContext';
+import { MASK_PLACEHOLDER } from '../../lib/mask';
 
 const AccountSummary = ({ accounts }) => {
   const navigate = useNavigate();
+  const { masked } = usePrivacy();
   const formatCurrency = (amount) => {
+    if (masked) return MASK_PLACEHOLDER;
     return new Intl.NumberFormat('en-PH', {
       style: 'currency',
       currency: 'PHP'

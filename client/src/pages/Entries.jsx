@@ -1,15 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Edit, Trash2, Download, List, Calendar } from 'lucide-react';
-import { getEntries, getAccounts, getCategories, deleteEntry, exportEntries, createEntry } from '../lib/api';
+import { Plus, Edit, Trash2, Download, List, Calendar, CheckCircle } from 'lucide-react';
+import { getEntries, getAccounts, getCategories, deleteEntry, exportEntries, confirmPendingEntry } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
+import { usePrivacy } from '../contexts/PrivacyContext';
+import { useAddEntryModal } from '../contexts/AddEntryModalContext';
+import { MASK_PLACEHOLDER } from '../lib/mask';
 import FilterPanel from '../components/dashboard/FilterPanel';
 import CalendarView from '../components/entries/CalendarView';
-import TagInput from '../components/entries/TagInput';
 
 const Entries = () => {
   const navigate = useNavigate();
   const { user } = useAuth(); // refetch when auth state changes
+  const { masked } = usePrivacy();
+  const { openAddEntryModal } = useAddEntryModal();
   const [exporting, setExporting] = useState(false);
   const [entries, setEntries] = useState([]);
   const [accounts, setAccounts] = useState([]);
@@ -35,20 +39,8 @@ const Entries = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [entryToDelete, setEntryToDelete] = useState(null);
 
-  // Add Entry modal state
+  // Add Entry modal state — modal now lives in AddEntryModalContext (US-07)
   const [viewMode, setViewMode] = useState('list'); // 'list' | 'calendar' — local only, not persisted
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [addForm, setAddForm] = useState({
-    type: 'expense',
-    amount: '',
-    account_id: '',
-    category_id: '',
-    note: '',
-    date: new Date().toISOString().split('T')[0]
-  });
-  const [saving, setSaving] = useState(false);
-  const [addError, setAddError] = useState('');
-  const [addTags, setAddTags] = useState([]);
 
   useEffect(() => {
     fetchData();
@@ -150,60 +142,17 @@ const Entries = () => {
     }
   };
 
-  const handleAddEntry = async (e) => {
-    e.preventDefault();
-    setSaving(true);
-    setAddError('');
-    
+  const openAddModal = () => {
+    openAddEntryModal(fetchEntries);
+  };
+
+  const handleConfirmPending = async (entryId) => {
     try {
-      const amount = parseFloat(addForm.amount);
-      if (isNaN(amount) || amount <= 0) {
-        throw new Error('Amount must be a positive number');
-      }
-      
-      await createEntry({
-        type: addForm.type,
-        amount: parseFloat(addForm.amount),
-        account_id: parseInt(addForm.account_id, 10),
-        category_id: parseInt(addForm.category_id, 10),
-        note: addForm.note,
-        date: addForm.date,
-        tag_ids: addTags.map(t => t.id)
-      });
-      
-      // Reset form but keep type and date
-      setAddForm(prev => ({
-        ...prev,
-        amount: '',
-        account_id: '',
-        category_id: '',
-        note: ''
-      }));
-      setAddTags([]);
-      
-      setShowAddModal(false);
+      await confirmPendingEntry(entryId);
       fetchEntries();
     } catch (err) {
-      setAddError('Failed to create entry: ' + err.message);
-    } finally {
-      setSaving(false);
+      setError('Failed to confirm entry: ' + err.message);
     }
-  };
-
-  const handleAddTypeChange = (type) => {
-    setAddForm(prev => ({
-      ...prev,
-      type,
-      category_id: ''
-    }));
-  };
-
-  const openAddModal = () => {
-    // Pre-populate account if there's only one
-    if (accounts.length === 1) {
-      setAddForm(prev => ({ ...prev, account_id: accounts[0].id }));
-    }
-    setShowAddModal(true);
   };
 
   const handleDayClick = (dateStr) => {
@@ -225,6 +174,7 @@ const Entries = () => {
   };
 
   const formatCurrency = (amount) => {
+    if (masked) return MASK_PLACEHOLDER;
     const safe = (amount == null || Number.isNaN(amount)) ? 0 : amount;
     return new Intl.NumberFormat('en-PH', {
       style: 'currency',
@@ -407,7 +357,7 @@ const Entries = () => {
                     </td>
                     <td className="whitespace-nowrap px-3 py-4 text-sm text-right font-medium">
                       <span className={entry.type === 'income' ? 'text-green-600' : 'text-red-600'}>
-                        {entry.type === 'income' ? '+' : '-'}{formatCurrency(entry.amount)}
+                        {masked ? formatCurrency(entry.amount) : `${entry.type === 'income' ? '+' : '-'}${formatCurrency(entry.amount)}`}
                       </span>
                     </td>
                     <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
@@ -420,6 +370,16 @@ const Entries = () => {
                         </button>
                       ) : (
                         <>
+                          {entry.pending && (
+                            <button
+                              onClick={() => handleConfirmPending(entry.id)}
+                              className="text-amber-600 hover:text-amber-800 mr-3 transition-colors duration-150"
+                              aria-label="Confirm pending entry"
+                              title="Confirm pending entry"
+                            >
+                              <CheckCircle className="h-4 w-4" />
+                            </button>
+                          )}
                           <button
                             onClick={() => navigate(`/entries/${entry.id}/edit`)}
                             className="text-brand-600 hover:text-brand-900 mr-3 transition-colors duration-150"
@@ -500,143 +460,7 @@ const Entries = () => {
         </div>
       )}
 
-      {/* Add Entry Modal */}
-      {showAddModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full p-6 transition-all duration-200 max-h-[90vh] overflow-y-auto">
-            <h2 className="text-lg font-semibold mb-4">Add New Entry</h2>
-            
-            {addError && (
-              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
-                <p className="text-sm text-red-700">{addError}</p>
-              </div>
-            )}
-            
-            <form onSubmit={handleAddEntry} className="space-y-4">
-              <div className="flex space-x-4">
-                <button
-                  type="button"
-                  onClick={() => handleAddTypeChange('expense')}
-                  className={`flex-1 py-2 px-4 rounded-md text-center font-medium ${
-                    addForm.type === 'expense'
-                      ? 'bg-red-100 text-red-800 border border-red-200'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  } transition-colors duration-150`}
-                >
-                  Expense
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleAddTypeChange('income')}
-                  className={`flex-1 py-2 px-4 rounded-md text-center font-medium ${
-                    addForm.type === 'income'
-                      ? 'bg-green-100 text-green-800 border border-green-200'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  } transition-colors duration-150`}
-                >
-                  Income
-                </button>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Amount</label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <span className="text-gray-500 sm:text-sm">₱</span>
-                  </div>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0.01"
-                    value={addForm.amount}
-                    onChange={(e) => setAddForm({ ...addForm, amount: e.target.value })}
-                    className="block w-full pl-8 rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 sm:text-sm p-2 border"
-                    required
-                  />
-                </div>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Account</label>
-                <select
-                  value={addForm.account_id}
-                  onChange={(e) => setAddForm({ ...addForm, account_id: e.target.value })}
-                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 sm:text-sm p-2 border"
-                  required
-                >
-                  <option value="">Select an account</option>
-                  {accounts.map((account) => (
-                    <option key={account.id} value={account.id}>
-                      {account.emoji && `${account.emoji} `}
-                      {account.name} ({account.type})
-                    </option>
-                  ))}
-                </select>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
-                <select
-                  value={addForm.category_id}
-                  onChange={(e) => setAddForm({ ...addForm, category_id: e.target.value })}
-                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 sm:text-sm p-2 border"
-                  required
-                >
-                  <option value="">Select a category</option>
-                  {(addForm.type === 'expense' ? categories.expense : categories.income).map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.icon && `${category.icon} `}
-                      {category.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              
-              <TagInput value={addTags} onChange={setAddTags} />
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
-                <input
-                  type="date"
-                  value={addForm.date}
-                  onChange={(e) => setAddForm({ ...addForm, date: e.target.value })}
-                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 sm:text-sm p-2 border"
-                  required
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Note</label>
-                <textarea
-                  value={addForm.note}
-                  onChange={(e) => setAddForm({ ...addForm, note: e.target.value })}
-                  rows={3}
-                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 sm:text-sm p-2 border"
-                  placeholder="Add a note (optional)"
-                />
-              </div>
-              
-              <div className="flex justify-end space-x-3">
-                <button
-                  type="button"
-                  onClick={() => { setShowAddModal(false); setAddError(''); }}
-                  className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 transition-colors duration-150"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 disabled:opacity-50 transition-colors duration-150"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  {saving ? 'Adding...' : 'Add Entry'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* Add Entry Modal — rendered globally in Layout.jsx via AddEntryModalContext (US-07) */}
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && (

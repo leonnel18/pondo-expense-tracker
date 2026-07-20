@@ -2,6 +2,7 @@ import React from 'react';
 import { useLocation } from 'react-router-dom';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import PrivacyToggle from './ui/PrivacyToggle';
 
 const Header = ({ onMenuToggle }) => {
   const location = useLocation();
@@ -37,6 +38,7 @@ const Header = ({ onMenuToggle }) => {
         </div>
         
         <div className="flex items-center space-x-4">
+          <PrivacyToggle />
           {showAddEntryButton && (
             <Link
               to="/entries"

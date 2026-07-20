@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { getDueRecurrences, confirmRecurrence } from '../../lib/api';
+import { usePrivacy } from '../../contexts/PrivacyContext';
+import { MASK_PLACEHOLDER } from '../../lib/mask';
 
-const formatCurrency = (amount) => {
+const formatCurrency = (amount, masked) => {
+  if (masked) return MASK_PLACEHOLDER;
   return new Intl.NumberFormat('en-PH', {
     style: 'currency',
     currency: 'PHP'
@@ -12,6 +15,7 @@ const formatCurrency = (amount) => {
 // empty — an empty confirm-queue is just the normal state, not something
 // to promote with an empty-state prompt.
 const RecurrenceConfirmCard = () => {
+  const { masked } = usePrivacy();
   const [pending, setPending] = useState([]);
   const [loading, setLoading] = useState(true);
   const [confirmingId, setConfirmingId] = useState(null);
@@ -74,7 +78,7 @@ const RecurrenceConfirmCard = () => {
               )}
               <div className="min-w-0">
                 <p className="text-sm font-medium text-gray-900 truncate">{r.category_name}</p>
-                <p className="text-xs text-gray-500">{formatCurrency(r.amount)}</p>
+                <p className="text-xs text-gray-500">{formatCurrency(r.amount, masked)}</p>
               </div>
             </div>
             <button
@@ -82,7 +86,7 @@ const RecurrenceConfirmCard = () => {
               disabled={confirmingId === r.id}
               className="ml-2 flex-shrink-0 px-3 py-1.5 text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 transition-colors duration-150 disabled:opacity-50"
             >
-              {confirmingId === r.id ? 'Confirming...' : `Confirm ${formatCurrency(r.amount)}`}
+              {confirmingId === r.id ? 'Confirming...' : `Confirm ${formatCurrency(r.amount, masked)}`}
             </button>
           </div>
         ))}

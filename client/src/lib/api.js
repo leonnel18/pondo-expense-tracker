@@ -121,6 +121,14 @@ export const deleteAccount = (id) => {
   });
 };
 
+// Reconciliation API (US-03)
+export const reconcileAccount = (id, actualBalance) => {
+  return apiRequest(`/accounts/${id}/reconcile`, {
+    method: 'POST',
+    body: JSON.stringify({ actual_balance: actualBalance })
+  });
+};
+
 // Category API
 export const getCategories = (type) => {
   const params = new URLSearchParams();
@@ -191,6 +199,11 @@ export const deleteEntry = (id) => {
   return apiRequest(`/entries/${id}`, {
     method: 'DELETE'
   });
+};
+
+// Confirm pending entry (US-04)
+export const confirmPendingEntry = (id) => {
+  return apiRequest(`/entries/${id}/confirm`, { method: 'POST' });
 };
 
 // Tag API

@@ -187,7 +187,7 @@ const getAccountBalance = async (id) => {
     .from('accounts')
     .select(`
       type,
-      entries(type, amount)
+      entries(type, amount, deleted_at, pending)
     `)
     .eq('id', id)
     .is('deleted_at', null)  // Add deleted_at filter for soft-delete
@@ -201,13 +201,13 @@ const getAccountBalance = async (id) => {
     throw error;
   }
 
-  // Calculate totals
+  // Calculate totals — exclude both soft-deleted and pending entries (US-04)
   const totalIncome = data.entries
-    .filter(e => e.type === 'income' && !e.deleted_at)  // Add JS filter for soft-deleted entries
+    .filter(e => e.type === 'income' && !e.deleted_at && !e.pending)  // Add JS filter for soft-deleted + pending entries
     .reduce((sum, entry) => sum + entry.amount, 0);
 
   const totalExpense = data.entries
-    .filter(e => e.type === 'expense' && !e.deleted_at)  // Add JS filter for soft-deleted entries
+    .filter(e => e.type === 'expense' && !e.deleted_at && !e.pending)  // Add JS filter for soft-deleted + pending entries
     .reduce((sum, entry) => sum + entry.amount, 0);
 
   // Calculate balance based on account type
@@ -547,7 +547,7 @@ const getEntries = async (filters = {}) => {
   let query = supabase
     .from('entries')
     .select(`
-      id, type, amount, note, date, created_at, updated_at,
+      id, type, amount, note, date, created_at, updated_at, pending,
       account:accounts(id, name, type, emoji),
       category:categories(id, name, type, color, icon),
       transfer_group_id,
@@ -617,6 +617,7 @@ const getEntries = async (filters = {}) => {
     date: entry.date,
     created_at: entry.created_at,
     updated_at: entry.updated_at,
+    pending: entry.pending ?? false,  // US-04: expose pending flag in list
     account_id: entry.account.id,
     category_id: entry.category.id,
     account_name: entry.account.name,
@@ -634,7 +635,7 @@ const getEntryById = async (id) => {
   const { data, error } = await supabase
     .from('entries')
     .select(`
-      id, type, amount, note, date, created_at, updated_at,
+      id, type, amount, note, date, created_at, updated_at, pending,
       account_id,
       category_id,
       transfer_group_id,
@@ -663,6 +664,7 @@ const getEntryById = async (id) => {
     date: data.date,
     created_at: data.created_at,
     updated_at: data.updated_at,
+    pending: data.pending ?? false,  // US-04: expose pending flag
     account_id: data.account_id,
     category_id: data.category_id,
     transfer_group_id: data.transfer_group_id, // Add transfer_group_id
@@ -686,7 +688,7 @@ const getEntryById = async (id) => {
 // which is likewise only ever set by the transfer RPC functions, never by
 // createEntry's caller-supplied `entry` object).
 const createEntry = async (entry, internal = {}) => {
-  const { type, amount, account_id, category_id, note, date } = entry;
+  const { type, amount, account_id, category_id, note, date, pending } = entry;
   const { recurrenceId } = internal;
   // tagIds is optional — only present when the caller explicitly provides tags.
   // It is NOT part of the `entry` payload shape (same reasoning as recurrenceId —
@@ -702,6 +704,7 @@ const createEntry = async (entry, internal = {}) => {
       category_id,
       note: note || null,
       date,
+      pending: pending || false,  // US-04: default to false (recurrence/reconciliation entries are never pending)
       recurrence_id: recurrenceId || null
     })
     .select(`
@@ -745,6 +748,7 @@ const createEntry = async (entry, internal = {}) => {
     date: data.date,
     created_at: data.created_at,
     updated_at: data.updated_at,
+    pending: data.pending ?? false,  // US-04: expose pending in create response
     account_id: data.account.id,
     category_id: data.category.id,
     account_name: data.account.name,
@@ -760,20 +764,27 @@ const createEntry = async (entry, internal = {}) => {
 };
 
 const updateEntry = async (id, entry, internal = {}) => {
-  const { type, amount, account_id, category_id, note, date } = entry;
+  const { type, amount, account_id, category_id, note, date, pending } = entry;
   const { tagIds } = internal; // optional array — undefined = don't touch tags
+  
+  const updateFields = {
+    type,
+    amount,
+    account_id,
+    category_id,
+    note: note || null,
+    date,
+    updated_at: new Date().toISOString()
+  };
+  
+  // US-04: only include pending in the update if it was explicitly provided
+  if (pending !== undefined) {
+    updateFields.pending = pending;
+  }
   
   const { data, error } = await supabase
     .from('entries')
-    .update({
-      type,
-      amount,
-      account_id,
-      category_id,
-      note: note || null,
-      date,
-      updated_at: new Date().toISOString()
-    })
+    .update(updateFields)
     .eq('id', id)
     .select(`
       id, type, amount, note, date, created_at, updated_at,
@@ -816,6 +827,7 @@ const updateEntry = async (id, entry, internal = {}) => {
     date: data.date,
     created_at: data.created_at,
     updated_at: data.updated_at,
+    pending: data.pending ?? false,  // US-04: expose pending in update response
     account_id: data.account.id,
     category_id: data.category.id,
     transfer_group_id: data.transfer_group_id, // Add transfer_group_id
@@ -904,7 +916,7 @@ const getEntriesForExport = async (from, to) => {
   let query = supabase
     .from('entries')
     .select(`
-      id, type, amount, note, date, created_at, updated_at,
+      id, type, amount, note, date, created_at, updated_at, pending,
       account:accounts(name),
       category:categories(name),
       transfer_group_id,
@@ -937,6 +949,7 @@ const getEntriesForExport = async (from, to) => {
     date: entry.date,
     created_at: entry.created_at,
     updated_at: entry.updated_at,
+    pending: entry.pending ?? false,  // US-04: expose pending flag in export
     account_name: entry.account.name,
     category_name: entry.category.name,
     transfer_group_id: entry.transfer_group_id, // Add transfer_group_id
@@ -964,7 +977,8 @@ const getDashboardKPIs = async (from, to) => {
   let entriesQuery = supabase
     .from('entries')
     .select('type, amount')
-    .is('deleted_at', null);  // Add deleted_at filter for soft-delete
+    .is('deleted_at', null)  // Add deleted_at filter for soft-delete
+    .eq('pending', false);  // US-04: exclude pending entries from financial totals
 
   if (from) {
     entriesQuery = entriesQuery.gte('date', from);
@@ -996,7 +1010,7 @@ const getDashboardKPIs = async (from, to) => {
     .from('accounts')
     .select(`
       id, type,
-      entries(type, amount, deleted_at)
+      entries(type, amount, deleted_at, pending)
     `)
     .is('deleted_at', null);  // Add deleted_at filter for soft-delete
 
@@ -1014,7 +1028,7 @@ const getDashboardKPIs = async (from, to) => {
     // only filter out soft-deleted entries. This matches getAccountBalance()
     // (line ~185) and getDashboardAccounts() (called with no from/to) which
     // both correctly skip date-filtering for balance calculations.
-    const accountEntries = account.entries.filter(e => !e.deleted_at);
+    const accountEntries = account.entries.filter(e => !e.deleted_at && !e.pending);
     
     // Calculate account balance
     const totalIncome = accountEntries
@@ -1068,7 +1082,8 @@ const getDashboardMoM = async (from, to) => {
   let query = supabase
     .from('entries')
     .select('date, type, amount, transfer_group_id')
-    .is('deleted_at', null);  // Add deleted_at filter for soft-delete
+    .is('deleted_at', null)  // Add deleted_at filter for soft-delete
+    .eq('pending', false);  // US-04: exclude pending entries from financial totals
 
   if (from) {
     query = query.gte('date', from);
@@ -1124,7 +1139,8 @@ const getExpenseBreakdown = async (from, to) => {
       transfer_group_id
     `)
     .eq('type', 'expense')
-    .is('deleted_at', null);  // Add deleted_at filter for soft-delete
+    .is('deleted_at', null)  // Add deleted_at filter for soft-delete
+    .eq('pending', false);  // US-04: exclude pending entries from financial totals
 
   if (from) {
     query = query.gte('date', from);
@@ -1173,7 +1189,8 @@ const getIncomeBreakdown = async (from, to) => {
       transfer_group_id
     `)
     .eq('type', 'income')
-    .is('deleted_at', null);  // Add deleted_at filter for soft-delete
+    .is('deleted_at', null)  // Add deleted_at filter for soft-delete
+    .eq('pending', false);  // US-04: exclude pending entries from financial totals
 
   if (from) {
     query = query.gte('date', from);
@@ -1221,7 +1238,8 @@ const getDashboardAccounts = async (from, to) => {
       amount,
       transfer_group_id
     `)
-    .is('deleted_at', null);  // Add deleted_at filter for soft-delete
+    .is('deleted_at', null)  // Add deleted_at filter for soft-delete
+    .eq('pending', false);  // US-04: exclude pending entries from financial totals
 
   if (from) {
     query = query.gte('date', from);
@@ -1292,7 +1310,7 @@ const getRecentEntries = async (from, to, limit = 10) => {
   let query = supabase
     .from('entries')
     .select(`
-      id, type, amount, note, date, created_at, updated_at,
+      id, type, amount, note, date, created_at, updated_at, pending,
       account:accounts(id, name, type, emoji),
       category:categories(id, name, type, color, icon),
       transfer_group_id
@@ -1324,6 +1342,7 @@ const getRecentEntries = async (from, to, limit = 10) => {
     date: entry.date,
     created_at: entry.created_at,
     updated_at: entry.updated_at,
+    pending: entry.pending ?? false,  // US-04: expose pending flag for badge display
     account_id: entry.account.id,
     category_id: entry.category.id,
     account_name: entry.account.name,
@@ -1498,6 +1517,8 @@ const getRecycleBin = async (filters = {}) => {
     type: 'entry',
     id: entry.id,
     label: `${entry.note || 'Untitled'} — ₱${entry.amount.toLocaleString()}`,
+    note: entry.note || 'Untitled',
+    amount: entry.amount,
     account_name: entry.account?.name || 'Unknown Account',
     date: entry.date,
     deleted_at: entry.deleted_at,
@@ -2228,6 +2249,7 @@ const getCalendarMonth = async (month) => {
     .select('date, type, amount, transfer_group_id')
     .is('deleted_at', null)
     .is('transfer_group_id', null)   // exclude transfers
+    .eq('pending', false)             // US-04: exclude pending entries from day-cell totals
     .gte('date', from)
     .lte('date', to);
 
@@ -2352,7 +2374,8 @@ const getTagsReport = async (from, to) => {
                                       // This matches getCalendarMonth's own .is('deleted_at', null)
                                       // two sections earlier in this same document; the original
                                       // draft here was inconsistent with it.
-    .is('entries.transfer_group_id', null);  // exclude transfers
+    .is('entries.transfer_group_id', null)  // exclude transfers
+    .eq('entries.pending', false);  // US-04: exclude pending entries from tag-spend report
 
   if (from) query = query.gte('entries.date', from);
   if (to) query = query.lte('entries.date', to);
@@ -2377,6 +2400,84 @@ const getTagsReport = async (from, to) => {
   }
 
   return Object.values(tagMap).sort((a, b) => b.total_amount - a.total_amount);
+};
+
+// ── Balance Adjustment category lookup (US-03, v1.2) ─────────────────────
+// Deliberately NOT reusing getFallbackCategory()'s is_default lookup pattern —
+// that function uses .eq('is_default', true).single(), but every seeded default
+// category in this app has is_default = true (10 expense + 6 income = 16 rows),
+// so .single() would error given more than one match. This is a pre-existing
+// bug in getFallbackCategory(), out of this sprint's scope. Instead, filter on
+// the exact literal name "Balance Adjustment" in addition to type, which is
+// unambiguous by construction (migration 014 inserts exactly one row per type).
+const getBalanceAdjustmentCategory = async (type) => {
+  const { data, error } = await supabase
+    .from('categories')
+    .select('id, name, type, color, icon, is_default, sort_order, created_at, updated_at')
+    .eq('name', 'Balance Adjustment')
+    .eq('type', type)
+    .single();
+
+  if (error) {
+    if (error.code === 'PGRST116') {
+      // No rows returned — category not seeded yet
+      return null;
+    }
+    throw error;
+  }
+
+  return data;
+};
+
+// ── Pending entry confirmation (US-04, v1.2) ───────────────────────────
+// Targeted mutation: only touches pending + updated_at, not the full entry
+// payload. Mirrors the existing updateRecurrenceInternal() pattern — a
+// minimal, purpose-built mutation rather than requiring the caller to
+// reconstruct and resubmit the entire entry via updateEntry().
+const confirmPendingEntry = async (id) => {
+  const { data, error } = await supabase
+    .from('entries')
+    .update({ pending: false, updated_at: new Date().toISOString() })
+    .eq('id', id)
+    .is('deleted_at', null)
+    .eq('pending', true)
+    .select(`
+      id, type, amount, note, date, created_at, updated_at, pending,
+      account:accounts(id, name, type, emoji),
+      category:categories(id, name, type, color, icon),
+      transfer_group_id
+    `)
+    .single();
+
+  if (error) {
+    if (error.code === 'PGRST116') {
+      // No rows returned — either entry doesn't exist, is already confirmed,
+      // or is soft-deleted
+      return null;
+    }
+    throw error;
+  }
+
+  return {
+    id: data.id,
+    type: data.type,
+    amount: data.amount,
+    note: data.note,
+    date: data.date,
+    created_at: data.created_at,
+    updated_at: data.updated_at,
+    pending: data.pending,
+    account_id: data.account.id,
+    category_id: data.category.id,
+    transfer_group_id: data.transfer_group_id,
+    account_name: data.account.name,
+    account_type: data.account.type,
+    account_emoji: data.account.emoji,
+    category_name: data.category.name,
+    category_type: data.category.type,
+    category_color: data.category.color,
+    category_icon: data.category.icon
+  };
 };
 
 module.exports = {
@@ -2465,5 +2566,11 @@ module.exports = {
   getTags,
   createTag,
   deleteTag,
-  getTagsReport
+  getTagsReport,
+
+  // Balance reconciliation (US-03, v1.2)
+  getBalanceAdjustmentCategory,
+
+  // Pending entry confirmation (US-04, v1.2)
+  confirmPendingEntry
 };

@@ -1,6 +1,8 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
+import { PrivacyProvider } from './contexts/PrivacyContext';
+import { AddEntryModalProvider } from './contexts/AddEntryModalContext';
 import { AuthGate } from './components/AuthGate';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
@@ -35,6 +37,8 @@ const NotFound = () => (
 function App() {
   return (
     <AuthProvider>
+      <PrivacyProvider>
+      <AddEntryModalProvider>
       <Router>
         <Routes>
           {/* Public routes — no auth required */}
@@ -65,6 +69,8 @@ function App() {
           </Route>
         </Routes>
       </Router>
+      </AddEntryModalProvider>
+      </PrivacyProvider>
     </AuthProvider>
   );
 }

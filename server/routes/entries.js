@@ -12,6 +12,7 @@ const {
   getCategoryById,
   getAccountById,
   getCalendarMonth,
+  confirmPendingEntry,
   logAppEvent
 } = require('../db/queries');
 const { validate, createEntrySchema, updateEntrySchema, bulkDeleteEntriesSchema, calendarQuerySchema } = require('../middleware/validate');
@@ -272,6 +273,7 @@ router.put('/:id', validate(updateEntrySchema), async (req, res, next) => {
       category_id: req.body.category_id ?? existingEntry.category_id,
       note: req.body.note !== undefined ? req.body.note : existingEntry.note,
       date: req.body.date ?? existingEntry.date,
+      pending: req.body.pending !== undefined ? req.body.pending : undefined,  // US-04: pass pending if provided
     }, {
       // tag_ids: if present in the request body (including empty array),
       // pass it for full replacement. If absent from the body, pass undefined
@@ -319,6 +321,40 @@ router.post('/bulk-delete', validate(bulkDeleteEntriesSchema), async (req, res, 
   try {
     const result = await bulkDeleteEntries(req.body.ids);
     res.json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /api/entries/:id/confirm — US-04 confirm pending entry
+// Placed after bulk-delete to avoid any path collision concerns. /:id/confirm
+// is a distinct two-segment path, unlike /:id which matches single segments.
+router.post('/:id/confirm', async (req, res, next) => {
+  try {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Invalid entry ID',
+        },
+      });
+    }
+
+    const existing = await getEntryById(id);
+    if (!existing) {
+      return res.status(404).json({
+        error: { code: 'NOT_FOUND', message: 'Entry not found' },
+      });
+    }
+    if (!existing.pending) {
+      return res.status(409).json({
+        error: { code: 'NOT_PENDING', message: 'This entry is not pending.' },
+      });
+    }
+
+    const entry = await confirmPendingEntry(id);
+    res.json({ entry });
   } catch (error) {
     next(error);
   }
