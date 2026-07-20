@@ -41,7 +41,9 @@ router.get('/:id', async (req, res, next) => {
     if (!account) {
       return res.status(404).json({ error: 'Account not found' });
     }
-    res.json(account);
+    // Reconcile modal (US-03) reads account.balance from this endpoint
+    const balance = await getAccountBalance(req.params.id);
+    res.json({ ...account, balance });
   } catch (error) {
     next(error);
   }
