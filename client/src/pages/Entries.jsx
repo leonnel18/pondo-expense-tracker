@@ -1,13 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Edit, Trash2, Download, List, Calendar, CheckCircle } from 'lucide-react';
+import { Plus, Edit, Trash2, Download, List, Calendar, BarChart2, CheckCircle } from 'lucide-react';
 import { getEntries, getAccounts, getCategories, deleteEntry, exportEntries, confirmPendingEntry } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import { usePrivacy } from '../contexts/PrivacyContext';
 import { useAddEntryModal } from '../contexts/AddEntryModalContext';
 import { MASK_PLACEHOLDER } from '../lib/mask';
+import { getAccessibleTint, getAccountTint } from '../lib/colorUtils';
 import FilterPanel from '../components/dashboard/FilterPanel';
 import CalendarView from '../components/entries/CalendarView';
+import KpiCard from '../components/dashboard/KpiCard';
+import ExpenseChart from '../components/dashboard/ExpenseChart';
+import IncomeChart from '../components/dashboard/IncomeChart';
 
 const Entries = () => {
   const navigate = useNavigate();
@@ -40,7 +44,7 @@ const Entries = () => {
   const [entryToDelete, setEntryToDelete] = useState(null);
 
   // Add Entry modal state — modal now lives in AddEntryModalContext (US-07)
-  const [viewMode, setViewMode] = useState('list'); // 'list' | 'calendar' — local only, not persisted
+  const [viewMode, setViewMode] = useState('list'); // 'list' | 'calendar' | 'stats' — local only, not persisted
 
   useEffect(() => {
     fetchData();
@@ -190,6 +194,42 @@ const Entries = () => {
     });
   };
 
+  // Stats view (US-09) — breakdown of the entries currently loaded for the
+  // active filters (same `entries` state the list/calendar views use; no
+  // separate fetch, so it never loses scroll position or filter state).
+  const statsData = useMemo(() => {
+    let totalIncome = 0;
+    let totalExpense = 0;
+    const expenseByCategory = {};
+    const incomeByCategory = {};
+
+    entries.forEach((entry) => {
+      const bucket = entry.type === 'income' ? incomeByCategory : expenseByCategory;
+      if (entry.type === 'income') {
+        totalIncome += entry.amount;
+      } else {
+        totalExpense += entry.amount;
+      }
+      const key = entry.category_id;
+      if (!bucket[key]) {
+        bucket[key] = {
+          category_name: entry.category_name,
+          category_color: entry.category_color,
+          total: 0,
+        };
+      }
+      bucket[key].total += entry.amount;
+    });
+
+    return {
+      totalIncome,
+      totalExpense,
+      net: totalIncome - totalExpense,
+      expenseBreakdown: Object.values(expenseByCategory).sort((a, b) => b.total - a.total),
+      incomeBreakdown: Object.values(incomeByCategory).sort((a, b) => b.total - a.total),
+    };
+  }, [entries]);
+
   if (initialLoading) return <div className="p-6">Loading entries...</div>;
   if (error) return <div className="p-6 text-red-600">Error: {error}</div>;
 
@@ -242,6 +282,18 @@ const Entries = () => {
           <Calendar className="h-4 w-4 mr-1.5" />
           Calendar
         </button>
+        <button
+          onClick={() => setViewMode('stats')}
+          className={`inline-flex items-center px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+            viewMode === 'stats'
+              ? 'bg-brand-600 text-white'
+              : 'bg-white text-gray-600 border border-gray-300 hover:bg-gray-50'
+          }`
+        }
+        >
+          <BarChart2 className="h-4 w-4 mr-1.5" />
+          Stats
+        </button>
       </div>
 
       <FilterPanel
@@ -258,6 +310,29 @@ const Entries = () => {
       {viewMode === 'calendar' ? (
         <div className="mt-6">
           <CalendarView onDayClick={handleDayClick} />
+        </div>
+      ) : viewMode === 'stats' ? (
+        <div className="mt-6">
+          {entries.length === 0 ? (
+            <div className="text-center p-12 border border-gray-200 rounded-lg">
+              <p className="text-gray-500">No entries found for the current filters</p>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <KpiCard title="Income" value={statsData.totalIncome} />
+                <KpiCard title="Expense" value={statsData.totalExpense} />
+                <KpiCard title="Net" value={statsData.net} />
+              </div>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <ExpenseChart data={statsData.expenseBreakdown} />
+                <IncomeChart data={statsData.incomeBreakdown} />
+              </div>
+              <p className="text-xs text-gray-400">
+                Based on the {entries.length} entr{entries.length === 1 ? 'y' : 'ies'} currently shown for the active filters.
+              </p>
+            </div>
+          )}
         </div>
       ) : entries.length === 0 ? (
         <div className="text-center p-12 border border-gray-200 rounded-lg mt-6">
@@ -311,8 +386,13 @@ const Entries = () => {
                     </td>
                     <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
                       <div className="flex items-center">
-                        {entry.category_emoji && (
-                          <span className="text-lg mr-2">{entry.category_emoji}</span>
+                        {entry.category_icon && (
+                          <span
+                            className="w-8 h-8 rounded-full flex items-center justify-center text-base mr-2 shrink-0"
+                            style={{ backgroundColor: getAccessibleTint(entry.category_color) }}
+                          >
+                            {entry.category_icon}
+                          </span>
                         )}
                         {entry.transfer_group_id ? (
                           <span className="text-gray-500">Transfer</span>
@@ -339,7 +419,12 @@ const Entries = () => {
                     <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
                       <div className="flex items-center">
                         {entry.account_emoji && (
-                          <span className="text-lg mr-2">{entry.account_emoji}</span>
+                          <span
+                            className="w-8 h-8 rounded-full flex items-center justify-center text-base mr-2 shrink-0"
+                            style={{ backgroundColor: getAccountTint(entry.account_type) }}
+                          >
+                            {entry.account_emoji}
+                          </span>
                         )}
                         {entry.transfer_group_id ? (
                           <div className="flex items-center">

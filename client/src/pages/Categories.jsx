@@ -17,14 +17,79 @@ const Categories = () => {
     name: '',
     type: 'expense',
     color: '#3B82F6',
-    icon: ''
+    icon: '',
+    parent_category_id: '' // US-13: '' = None (top-level)
   });
-  
+
   const [editForm, setEditForm] = useState({
     name: '',
     color: '#3B82F6',
-    icon: ''
+    icon: '',
+    parent_category_id: '' // US-13: '' = None (top-level)
   });
+
+  // US-13: top-level categories of a given type, available as parent
+  // options — excludes `excludeId` (a category can't be its own parent).
+  const getTopLevelOptions = (type, excludeId) => {
+    return (categories[type] || []).filter(
+      (c) => !c.parent_category_id && c.id !== excludeId
+    );
+  };
+
+  // US-13: groups a flat, sort_order-ordered category list into
+  // top-level categories each followed by their own subcategories
+  // (grouped, not flattened as sibling peers) — same client-side
+  // grouping pattern used by the entry-time <optgroup> picker.
+  const groupCategories = (list) => {
+    const topLevel = list.filter((c) => !c.parent_category_id);
+    return topLevel.map((parent) => ({
+      parent,
+      children: list.filter((c) => c.parent_category_id === parent.id)
+    }));
+  };
+
+  // Shared card renderer for both the top-level and (indented) subcategory
+  // cases, used by both the Expense and Income grids below.
+  const renderCategoryCard = (category, isChild = false) => (
+    <div
+      key={category.id}
+      className={`flex items-center justify-between p-4 bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow duration-200 ${isChild ? 'ml-6 border-dashed' : ''}`}
+    >
+      <div className="flex items-center">
+        {category.icon && (
+          <span className="text-2xl mr-3">{category.icon}</span>
+        )}
+        <div>
+          <div className="flex items-center">
+            <Circle
+              className="h-4 w-4 mr-2"
+              style={{ color: category.color || '#3B82F6' }}
+            />
+            <span className="font-medium text-gray-900">{category.name}</span>
+          </div>
+          <p className="text-sm text-gray-500 mt-1">
+            {category.entry_count ?? 0} entries
+          </p>
+        </div>
+      </div>
+      <div className="flex space-x-2">
+        <button
+          onClick={() => openEditModal(category)}
+          className="p-1 text-gray-500 hover:text-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-500 rounded transition-colors duration-150"
+          aria-label="Edit category"
+        >
+          <Edit className="h-4 w-4" />
+        </button>
+        <button
+          onClick={() => handleDeleteCategory(category.id)}
+          className="p-1 text-gray-500 hover:text-red-600 focus:outline-none focus:ring-2 focus:ring-red-500 rounded transition-colors duration-150"
+          aria-label="Delete category"
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
+      </div>
+    </div>
+  );
 
   useEffect(() => {
     fetchCategories();
@@ -46,8 +111,16 @@ const Categories = () => {
   const handleAddCategory = async (e) => {
     e.preventDefault();
     try {
-      await createCategory(addForm);
-      setAddForm({ name: '', type: 'expense', color: '#3B82F6', icon: '' });
+      // US-13: '' (None selected) → omit parent_category_id entirely
+      // (create with no parent), a positive int → the chosen parent.
+      const payload = {
+        ...addForm,
+        parent_category_id: addForm.parent_category_id
+          ? parseInt(addForm.parent_category_id, 10)
+          : undefined
+      };
+      await createCategory(payload);
+      setAddForm({ name: '', type: 'expense', color: '#3B82F6', icon: '', parent_category_id: '' });
       setShowAddForm(false);
       setActionError('');
       fetchCategories();
@@ -59,10 +132,19 @@ const Categories = () => {
   const handleEditCategory = async (e) => {
     e.preventDefault();
     try {
-      await updateCategory(editingCategory.id, editForm);
+      // US-13: '' (None selected) → explicit null (promote to top-level),
+      // a positive int → attempt to (re)parent. Always sent explicitly
+      // since the edit form always reflects the category's current state.
+      const payload = {
+        ...editForm,
+        parent_category_id: editForm.parent_category_id
+          ? parseInt(editForm.parent_category_id, 10)
+          : null
+      };
+      await updateCategory(editingCategory.id, payload);
       setShowEditModal(false);
       setEditingCategory(null);
-      setEditForm({ name: '', color: '#3B82F6', icon: '' });
+      setEditForm({ name: '', color: '#3B82F6', icon: '', parent_category_id: '' });
       setActionError('');
       fetchCategories();
     } catch (err) {
@@ -87,7 +169,8 @@ const Categories = () => {
     setEditForm({
       name: category.name,
       color: category.color || '#3B82F6',
-      icon: category.icon || ''
+      icon: category.icon || '',
+      parent_category_id: category.parent_category_id ? String(category.parent_category_id) : ''
     });
     setShowEditModal(true);
   };
@@ -136,7 +219,9 @@ const Categories = () => {
                 </label>
                 <select
                   value={addForm.type}
-                  onChange={(e) => setAddForm({ ...addForm, type: e.target.value })}
+                  // US-13: a parent must match the category's own type, so
+                  // clear any chosen parent when the type changes.
+                  onChange={(e) => setAddForm({ ...addForm, type: e.target.value, parent_category_id: '' })}
                   className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 sm:text-sm p-2 border"
                 >
                   <option value="expense">Expense</option>
@@ -160,6 +245,24 @@ const Categories = () => {
                   onEmojiSelect={(emoji) => setAddForm({ ...addForm, icon: emoji })}
                   label="Emoji (Optional)"
                 />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Parent category (optional)
+                </label>
+                <select
+                  value={addForm.parent_category_id}
+                  onChange={(e) => setAddForm({ ...addForm, parent_category_id: e.target.value })}
+                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 sm:text-sm p-2 border"
+                >
+                  <option value="">None</option>
+                  {getTopLevelOptions(addForm.type).map((parent) => (
+                    <option key={parent.id} value={parent.id}>
+                      {parent.icon && `${parent.icon} `}
+                      {parent.name}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
             <div className="flex justify-end space-x-3">
@@ -198,45 +301,11 @@ const Categories = () => {
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {categories.expense.map((category) => (
-                <div
-                  key={category.id}
-                  className="flex items-center justify-between p-4 bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow duration-200"
-                >
-                  <div className="flex items-center">
-                    {category.icon && (
-                      <span className="text-2xl mr-3">{category.icon}</span>
-                    )}
-                    <div>
-                      <div className="flex items-center">
-                        <Circle
-                          className="h-4 w-4 mr-2"
-                          style={{ color: category.color || '#3B82F6' }}
-                        />
-                        <span className="font-medium text-gray-900">{category.name}</span>
-                      </div>
-                      <p className="text-sm text-gray-500 mt-1">
-                        {category.entry_count ?? 0} entries
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() => openEditModal(category)}
-                      className="p-1 text-gray-500 hover:text-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-500 rounded transition-colors duration-150"
-                      aria-label="Edit category"
-                    >
-                      <Edit className="h-4 w-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDeleteCategory(category.id)}
-                      className="p-1 text-gray-500 hover:text-red-600 focus:outline-none focus:ring-2 focus:ring-red-500 rounded transition-colors duration-150"
-                      aria-label="Delete category"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
+            <div className="space-y-3">
+              {groupCategories(categories.expense).map(({ parent, children }) => (
+                <div key={parent.id} className="space-y-2">
+                  {renderCategoryCard(parent, false)}
+                  {children.map((child) => renderCategoryCard(child, true))}
                 </div>
               ))}
             </div>
@@ -259,45 +328,11 @@ const Categories = () => {
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {categories.income.map((category) => (
-                <div
-                  key={category.id}
-                  className="flex items-center justify-between p-4 bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow duration-200"
-                >
-                  <div className="flex items-center">
-                    {category.icon && (
-                      <span className="text-2xl mr-3">{category.icon}</span>
-                    )}
-                    <div>
-                      <div className="flex items-center">
-                        <Circle
-                          className="h-4 w-4 mr-2"
-                          style={{ color: category.color || '#3B82F6' }}
-                        />
-                        <span className="font-medium text-gray-900">{category.name}</span>
-                      </div>
-                      <p className="text-sm text-gray-500 mt-1">
-                        {category.entry_count ?? 0} entries
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() => openEditModal(category)}
-                      className="p-1 text-gray-500 hover:text-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-500 rounded transition-colors duration-150"
-                      aria-label="Edit category"
-                    >
-                      <Edit className="h-4 w-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDeleteCategory(category.id)}
-                      className="p-1 text-gray-500 hover:text-red-600 focus:outline-none focus:ring-2 focus:ring-red-500 rounded transition-colors duration-150"
-                      aria-label="Delete category"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
+            <div className="space-y-3">
+              {groupCategories(categories.income).map(({ parent, children }) => (
+                <div key={parent.id} className="space-y-2">
+                  {renderCategoryCard(parent, false)}
+                  {children.map((child) => renderCategoryCard(child, true))}
                 </div>
               ))}
             </div>
@@ -340,6 +375,30 @@ const Categories = () => {
                   onEmojiSelect={(emoji) => setEditForm({ ...editForm, icon: emoji })}
                   label="Emoji (Optional)"
                 />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Parent category (optional)
+                </label>
+                <select
+                  value={editForm.parent_category_id}
+                  onChange={(e) => setEditForm({ ...editForm, parent_category_id: e.target.value })}
+                  disabled={(editingCategory?.child_count ?? 0) > 0}
+                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 sm:text-sm p-2 border disabled:bg-gray-100 disabled:text-gray-400"
+                >
+                  <option value="">None</option>
+                  {editingCategory && getTopLevelOptions(editingCategory.type, editingCategory.id).map((parent) => (
+                    <option key={parent.id} value={parent.id}>
+                      {parent.icon && `${parent.icon} `}
+                      {parent.name}
+                    </option>
+                  ))}
+                </select>
+                {(editingCategory?.child_count ?? 0) > 0 && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    This category has its own subcategories and can't be converted into one.
+                  </p>
+                )}
               </div>
               <div className="flex justify-end space-x-3">
                 <button

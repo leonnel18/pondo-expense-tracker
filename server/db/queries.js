@@ -341,7 +341,9 @@ const getCategories = async (type = null) => {
     .from('categories')
     .select(`
       id, name, type, color, icon, is_default, sort_order, created_at, updated_at,
-      entries(count)
+      parent_category_id,
+      entries(count),
+      children:categories!categories_parent_category_id_fkey(count)
     `);
 
   if (type) {
@@ -356,10 +358,11 @@ const getCategories = async (type = null) => {
     throw error;
   }
 
-  // Add entry_count from the joined data
+  // Add entry_count/child_count from the joined data (US-13)
   return data.map(category => ({
     ...category,
-    entry_count: category.entries.length
+    entry_count: category.entries.length,
+    child_count: category.children ? category.children.length : 0
   }));
 };
 
@@ -368,7 +371,9 @@ const getCategoryById = async (id) => {
     .from('categories')
     .select(`
       id, name, type, color, icon, is_default, sort_order, created_at, updated_at,
-      entries(count)
+      parent_category_id,
+      entries(count),
+      children:categories!categories_parent_category_id_fkey(count)
     `)
     .eq('id', id)
     .single();
@@ -383,13 +388,58 @@ const getCategoryById = async (id) => {
 
   return {
     ...data,
-    entry_count: data.entries.length
+    entry_count: data.entries.length,
+    child_count: data.children ? data.children.length : 0
   };
 };
 
+// US-13: validates an optional parent_category_id against the two-table
+// rules in the approved design doc §2 (INVALID_PARENT / PARENT_TYPE_MISMATCH).
+// `type` is the (existing or new) type of the category being validated
+// against its would-be parent. Throws an Error with .code/.status set,
+// matching this file's existing convention (e.g. createBudget's
+// DUPLICATE_BUDGET, deleteRecurrence's HAS_ENTRIES) so it flows through
+// the generic err.status branch in error-handler.js unchanged.
+const validateParentCategory = async (parentCategoryId, type) => {
+  const { data: parent, error: parentError } = await supabase
+    .from('categories')
+    .select('id, type, parent_category_id')
+    .eq('id', parentCategoryId)
+    .maybeSingle();
+
+  if (parentError) {
+    throw parentError;
+  }
+
+  if (!parent) {
+    const err = new Error('Parent category not found.');
+    err.code = 'INVALID_PARENT';
+    err.status = 400;
+    throw err;
+  }
+
+  if (parent.parent_category_id !== null) {
+    const err = new Error('Cannot nest a subcategory under another subcategory.');
+    err.code = 'INVALID_PARENT';
+    err.status = 400;
+    throw err;
+  }
+
+  if (parent.type !== type) {
+    const err = new Error('Subcategory type must match its parent category type.');
+    err.code = 'PARENT_TYPE_MISMATCH';
+    err.status = 400;
+    throw err;
+  }
+};
+
 const createCategory = async (category) => {
-  const { name, type, color, icon, is_default, sort_order } = category;
-  
+  const { name, type, color, icon, is_default, sort_order, parent_category_id } = category;
+
+  if (parent_category_id !== undefined && parent_category_id !== null) {
+    await validateParentCategory(parent_category_id, type);
+  }
+
   const { data, error } = await supabase
     .from('categories')
     .insert({
@@ -398,7 +448,8 @@ const createCategory = async (category) => {
       color: color || null,
       icon: icon || null,
       is_default: is_default || false,
-      sort_order: sort_order || 0
+      sort_order: sort_order || 0,
+      parent_category_id: parent_category_id || null
     })
     .select()
     .single();
@@ -411,19 +462,50 @@ const createCategory = async (category) => {
 };
 
 const updateCategory = async (id, category) => {
-  const { name, type, color, icon, is_default, sort_order } = category;
-  
+  const { name, type, color, icon, is_default, sort_order, parent_category_id } = category;
+
+  const updateFields = {
+    name,
+    type,
+    color: color || null,
+    icon: icon || null,
+    is_default: is_default || false,
+    sort_order: sort_order || 0,
+    updated_at: new Date().toISOString()
+  };
+
+  // US-13: undefined = leave unchanged (omit from the update entirely,
+  // matching this function's existing partial-update behavior for
+  // color/icon); explicit null = promote back to top-level, always
+  // allowed, no checks; explicit positive int = attempt to (re)parent,
+  // validated per design §2's PUT table.
+  if (parent_category_id !== undefined) {
+    if (parent_category_id !== null) {
+      if (Number(parent_category_id) === Number(id)) {
+        const err = new Error('A category cannot be its own parent.');
+        err.code = 'INVALID_PARENT';
+        err.status = 400;
+        throw err;
+      }
+
+      const existing = await getCategoryById(id);
+      await validateParentCategory(parent_category_id, existing ? existing.type : type);
+
+      const subcategoryCount = await getSubcategoryCount(id);
+      if (subcategoryCount > 0) {
+        const err = new Error('Cannot convert to a subcategory: this category already has its own subcategories.');
+        err.code = 'HAS_SUBCATEGORIES';
+        err.status = 400;
+        throw err;
+      }
+    }
+
+    updateFields.parent_category_id = parent_category_id;
+  }
+
   const { data, error } = await supabase
     .from('categories')
-    .update({
-      name,
-      type,
-      color: color || null,
-      icon: icon || null,
-      is_default: is_default || false,
-      sort_order: sort_order || 0,
-      updated_at: new Date().toISOString()
-    })
+    .update(updateFields)
     .eq('id', id)
     .select()
     .single();
@@ -456,6 +538,22 @@ const getCategoryEntryCount = async (id) => {
     .select('*', { count: 'exact', head: true })
     .eq('category_id', id)
     .is('deleted_at', null);  // Add deleted_at filter for soft-delete
+
+  if (error) {
+    throw error;
+  }
+
+  return count;
+};
+
+// US-13: count of direct subcategories (rows with parent_category_id = id).
+// Mirrors getCategoryEntryCount's shape — used by the HAS_SUBCATEGORIES
+// checks in updateCategory and the categories DELETE route.
+const getSubcategoryCount = async (id) => {
+  const { count, error } = await supabase
+    .from('categories')
+    .select('*', { count: 'exact', head: true })
+    .eq('parent_category_id', id);
 
   if (error) {
     throw error;
@@ -1128,12 +1226,56 @@ const getDashboardMoM = async (from, to) => {
   return Object.values(monthlyData).sort((a, b) => a.month.localeCompare(b.month));
 };
 
+// US-13 §4: shared roll-up pass for getExpenseBreakdown/getIncomeBreakdown.
+// Mutates categoryMap in place: backfills zero-total rows for any parent
+// category referenced by a row in categoryMap but not itself a key (a
+// parent with zero direct entries but ≥1 subcategory that does have
+// entries), then folds every subcategory row's total_amount up into its
+// parent's total_amount. Top-level rows end up fully rolled-up; subcategory
+// rows keep only their own direct total.
+const rollUpCategoryBreakdown = async (categoryMap, type) => {
+  const missingParentIds = [...new Set(
+    Object.values(categoryMap)
+      .map(c => c.parent_category_id)
+      .filter(pid => pid !== null && pid !== undefined && !categoryMap[pid])
+  )];
+
+  if (missingParentIds.length > 0) {
+    const { data: missingParents, error: parentsError } = await supabase
+      .from('categories')
+      .select('id,name,color,icon')
+      .in('id', missingParentIds);
+
+    if (parentsError) {
+      throw parentsError;
+    }
+
+    missingParents.forEach(parent => {
+      categoryMap[parent.id] = {
+        id: parent.id,
+        name: parent.name,
+        type,
+        color: parent.color,
+        icon: parent.icon,
+        parent_category_id: null,
+        total_amount: 0
+      };
+    });
+  }
+
+  Object.values(categoryMap).forEach(category => {
+    if (category.parent_category_id) {
+      categoryMap[category.parent_category_id].total_amount += category.total_amount;
+    }
+  });
+};
+
 const getExpenseBreakdown = async (from, to) => {
   let query = supabase
     .from('entries')
     .select(`
       category_id,
-      categories(name, type, color, icon),
+      categories(id, name, type, color, icon, parent_category_id),
       type,
       amount,
       transfer_group_id
@@ -1168,12 +1310,16 @@ const getExpenseBreakdown = async (from, to) => {
         type: entry.categories.type,
         color: entry.categories.color,
         icon: entry.categories.icon,
+        parent_category_id: entry.categories.parent_category_id,
         total_amount: 0
       };
     }
 
     categoryMap[categoryId].total_amount += entry.amount;
   });
+
+  // US-13 §4: backfill pass, then roll-up pass (order matters — see helper).
+  await rollUpCategoryBreakdown(categoryMap, 'expense');
 
   return Object.values(categoryMap);
 };
@@ -1183,7 +1329,7 @@ const getIncomeBreakdown = async (from, to) => {
     .from('entries')
     .select(`
       category_id,
-      categories(name, type, color, icon),
+      categories(id, name, type, color, icon, parent_category_id),
       type,
       amount,
       transfer_group_id
@@ -1218,12 +1364,16 @@ const getIncomeBreakdown = async (from, to) => {
         type: entry.categories.type,
         color: entry.categories.color,
         icon: entry.categories.icon,
+        parent_category_id: entry.categories.parent_category_id,
         total_amount: 0
       };
     }
 
     categoryMap[categoryId].total_amount += entry.amount;
   });
+
+  // US-13 §4: backfill pass, then roll-up pass (order matters — see helper).
+  await rollUpCategoryBreakdown(categoryMap, 'income');
 
   return Object.values(categoryMap);
 };
@@ -2505,6 +2655,7 @@ module.exports = {
   updateCategory,
   deleteCategory,
   getCategoryEntryCount,
+  getSubcategoryCount,
   reassignCategoryEntries,
   getFallbackCategory,
 

@@ -37,6 +37,47 @@ router.get('/due', async (req, res, next) => {
   }
 });
 
+// GET+POST /api/recurrences/process — cron-only, dual-gated.
+// Must be registered before GET /:id (below), same reason /due is above
+// it: Express matches route registration order, and /:id would otherwise
+// capture "process" as an id, 404ing before this handler is ever reached.
+// Found during independent review of this sprint's build — this endpoint
+// existed with the correct dual GET/POST + dual-auth logic (see comment
+// history in git blame) but was registered AFTER /:id, meaning the real
+// Vercel Cron GET trigger had never actually been reachable in production.
+//
+// Two things fixed relative to server/routes/recycle-bin.js's /purge:
+// 1. Vercel Cron Jobs ALWAYS invoke via HTTP GET (confirmed against
+//    Vercel's own docs — https://vercel.com/docs/cron-jobs), never POST,
+//    regardless of what the target route accepts. Both methods are
+//    registered here.
+// 2. Vercel Cron cannot send custom headers — it only ever sends its own
+//    fixed `Authorization: Bearer $CRON_SECRET` (if configured) plus
+//    identification headers. This endpoint accepts EITHER the existing
+//    X-API-Key/PURGE_API_KEY scheme (manual/API-triggered runs) OR
+//    Vercel's native Authorization: Bearer CRON_SECRET scheme (the real
+//    cron trigger).
+const processHandler = async (req, res, next) => {
+  try {
+    const apiKey = req.get('X-API-Key');
+    const authHeader = req.get('Authorization');
+
+    const apiKeyValid = apiKey && process.env.PURGE_API_KEY && apiKey === process.env.PURGE_API_KEY;
+    const cronSecretValid = authHeader && process.env.CRON_SECRET && authHeader === `Bearer ${process.env.CRON_SECRET}`;
+
+    if (!apiKeyValid && !cronSecretValid) {
+      return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Missing or invalid credentials' } });
+    }
+
+    const result = await processRecurrences();
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+};
+router.get('/process', processHandler);
+router.post('/process', processHandler);
+
 // GET /api/recurrences/:id
 router.get('/:id', async (req, res, next) => {
   try {
@@ -177,50 +218,5 @@ router.post('/:id/confirm', async (req, res, next) => {
     next(error);
   }
 });
-
-// GET+POST /api/recurrences/process — cron-only, dual-gated.
-//
-// Two things found and fixed during this build, not just modeled on
-// server/routes/recycle-bin.js's /purge but corrected relative to it:
-//
-// 1. Vercel Cron Jobs ALWAYS invoke via HTTP GET (confirmed against
-//    Vercel's own docs — https://vercel.com/docs/cron-jobs), never POST,
-//    regardless of what the target route accepts. A POST-only route here
-//    would never actually be reachable by its own cron trigger in
-//    production — which means /purge's existing POST-only registration
-//    has the same latent bug. Both methods are registered here.
-// 2. Vercel Cron cannot send custom headers — it only ever sends its own
-//    fixed `Authorization: Bearer $CRON_SECRET` (if the CRON_SECRET env
-//    var is configured on the Vercel project) plus identification headers
-//    (user-agent: vercel-cron/1.0, x-vercel-cron-schedule). A check that
-//    only accepts a custom `X-API-Key` header (the /purge pattern) can
-//    NEVER be satisfied by an actual Vercel Cron invocation — meaning the
-//    existing purge cron has never successfully authenticated itself in
-//    production either. This endpoint accepts EITHER the existing
-//    X-API-Key/PURGE_API_KEY scheme (manual/API-triggered runs) OR
-//    Vercel's native Authorization: Bearer CRON_SECRET scheme (the real
-//    cron trigger) — see Open Question / Risk Register addendum in the
-//    v2.3 design doc; the same dual-check is applied to /purge alongside
-//    this change since it's the identical root cause, not a hypothetical.
-const processHandler = async (req, res, next) => {
-  try {
-    const apiKey = req.get('X-API-Key');
-    const authHeader = req.get('Authorization');
-
-    const apiKeyValid = apiKey && process.env.PURGE_API_KEY && apiKey === process.env.PURGE_API_KEY;
-    const cronSecretValid = authHeader && process.env.CRON_SECRET && authHeader === `Bearer ${process.env.CRON_SECRET}`;
-
-    if (!apiKeyValid && !cronSecretValid) {
-      return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Missing or invalid credentials' } });
-    }
-
-    const result = await processRecurrences();
-    res.json(result);
-  } catch (error) {
-    next(error);
-  }
-};
-router.get('/process', processHandler);
-router.post('/process', processHandler);
 
 module.exports = router;

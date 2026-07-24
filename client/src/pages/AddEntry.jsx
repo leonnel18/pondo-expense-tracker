@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Plus } from 'lucide-react';
 import { getAccounts, getCategories, createEntry } from '../lib/api';
+import { evaluateAmountExpression } from '../lib/amountExpression';
 import TagInput from '../components/entries/TagInput';
 
 const AddEntry = () => {
@@ -66,15 +67,17 @@ const AddEntry = () => {
     setError('');
     
     try {
-      // Validate amount
-      const amount = parseFloat(form.amount);
+      // Resolve arithmetic expressions (e.g. "250+150") before validating (US-42).
+      // Falls back to the plain parseFloat/isNaN check below when unparseable.
+      const evaluatedAmount = evaluateAmountExpression(form.amount);
+      const amount = evaluatedAmount !== null ? evaluatedAmount : parseFloat(form.amount);
       if (isNaN(amount) || amount <= 0) {
         throw new Error('Amount must be a positive number');
       }
-      
+
       await createEntry({
         type: form.type,
-        amount: parseFloat(form.amount),
+        amount,
         account_id: parseInt(form.account_id, 10),
         category_id: parseInt(form.category_id, 10),
         note: form.note,
@@ -100,6 +103,17 @@ const AddEntry = () => {
     }
   };
 
+  // Resolve the raw typed text into a computed number on blur (US-42), so
+  // the field displays "400" after a user types "250+150" and tabs/clicks
+  // away, while the raw expression stays visible while focused. Invalid/
+  // unparseable text is left as-is for handleSubmit's fallback validation.
+  const handleAmountBlur = () => {
+    const evaluated = evaluateAmountExpression(form.amount);
+    if (evaluated !== null) {
+      setForm((prev) => ({ ...prev, amount: String(evaluated) }));
+    }
+  };
+
   const handleTypeChange = (type) => {
     setForm(prev => ({
       ...prev,
@@ -110,6 +124,20 @@ const AddEntry = () => {
 
   // Get categories for the current type
   const currentCategories = form.type === 'expense' ? categories.expense : categories.income;
+
+  // US-13: build the two-level <optgroup> picker client-side from the
+  // same flat getCategories(type) response already fetched above — no
+  // new API call. Top-level categories render as their own <option> (an
+  // entry can still be logged directly against a parent, no subcategory);
+  // each top-level category with child_count > 0 is immediately followed
+  // by an <optgroup> of its subcategories.
+  const topLevelCategories = currentCategories.filter((c) => !c.parent_category_id);
+  const subcategoriesByParent = currentCategories.reduce((acc, c) => {
+    if (c.parent_category_id) {
+      (acc[c.parent_category_id] = acc[c.parent_category_id] || []).push(c);
+    }
+    return acc;
+  }, {});
 
   if (loading) return <div className="p-6">Loading...</div>;
 
@@ -171,11 +199,12 @@ const AddEntry = () => {
                     <span className="text-gray-500 sm:text-sm">₱</span>
                   </div>
                   <input
-                    type="number"
-                    step="0.01"
-                    min="0.01"
+                    type="text"
+                    inputMode="decimal"
                     value={form.amount}
                     onChange={(e) => setForm({ ...form, amount: e.target.value })}
+                    onBlur={handleAmountBlur}
+                    placeholder="0.00 or 250+150"
                     className="block w-full pl-8 rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 sm:text-sm p-2 border"
                     required
                   />
@@ -213,11 +242,23 @@ const AddEntry = () => {
                   required
                 >
                   <option value="">Select a category</option>
-                  {currentCategories.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.icon && `${category.icon} `}
-                      {category.name}
-                    </option>
+                  {topLevelCategories.map((category) => (
+                    <React.Fragment key={category.id}>
+                      <option value={category.id}>
+                        {category.icon && `${category.icon} `}
+                        {category.name}
+                      </option>
+                      {category.child_count > 0 && (
+                        <optgroup label={category.name}>
+                          {(subcategoriesByParent[category.id] || []).map((sub) => (
+                            <option key={sub.id} value={sub.id}>
+                              {sub.icon && `${sub.icon} `}
+                              {sub.name}
+                            </option>
+                          ))}
+                        </optgroup>
+                      )}
+                    </React.Fragment>
                   ))}
                 </select>
               </div>

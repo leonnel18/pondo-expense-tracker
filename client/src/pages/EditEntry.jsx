@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { getEntry, updateEntry, getCategories, getAccounts } from '../lib/api';
+import { evaluateAmountExpression } from '../lib/amountExpression';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import Select from '../components/ui/Select';
@@ -91,18 +92,34 @@ const EditEntry = () => {
     }
   };
 
+  // Resolve the raw typed text into a computed number on blur (US-42), so
+  // the field displays "400" after a user types "250+150" and tabs/clicks
+  // away, while the raw expression stays visible while focused. Invalid/
+  // unparseable text is left as-is for handleSubmit's fallback parse.
+  const handleAmountBlur = () => {
+    const evaluated = evaluateAmountExpression(formData.amount);
+    if (evaluated !== null) {
+      setFormData((prev) => ({ ...prev, amount: String(evaluated) }));
+    }
+  };
+
   // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     try {
       setSaving(true);
       setError(null);
-      
+
+      // Resolve arithmetic expressions (e.g. "250+150") before submitting
+      // (US-42). Falls back to the plain parseFloat when unparseable.
+      const evaluatedAmount = evaluateAmountExpression(formData.amount);
+      const amount = evaluatedAmount !== null ? evaluatedAmount : parseFloat(formData.amount);
+
       // Convert form data to correct types
       const entryData = {
         ...formData,
-        amount: parseFloat(formData.amount),
+        amount,
         category_id: parseInt(formData.category_id),
         account_id: parseInt(formData.account_id),
         tag_ids: selectedTags.map(t => t.id)
@@ -124,6 +141,19 @@ const EditEntry = () => {
 
   // Get categories for current type
   const currentCategories = categories[formData.type] || [];
+
+  // US-13: build the two-level <optgroup> picker client-side from the
+  // same flat getCategories(type) response already fetched above — no
+  // new API call. Top-level categories render as their own <option>;
+  // each top-level category with child_count > 0 is immediately followed
+  // by an <optgroup> of its subcategories.
+  const topLevelCategories = currentCategories.filter((c) => !c.parent_category_id);
+  const subcategoriesByParent = currentCategories.reduce((acc, c) => {
+    if (c.parent_category_id) {
+      (acc[c.parent_category_id] = acc[c.parent_category_id] || []).push(c);
+    }
+    return acc;
+  }, {});
 
   if (loading) {
     return (
@@ -241,12 +271,13 @@ const EditEntry = () => {
             <Input
               label="Amount"
               name="amount"
-              type="number"
-              step="0.01"
-              min="0.01"
+              type="text"
+              inputMode="decimal"
               prefix="₱"
               value={formData.amount}
               onChange={handleInputChange}
+              onBlur={handleAmountBlur}
+              placeholder="0.00 or 250+150"
               required
             />
 
@@ -269,10 +300,21 @@ const EditEntry = () => {
               required
             >
               <option value="">Select a category</option>
-              {currentCategories.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
+              {topLevelCategories.map((category) => (
+                <React.Fragment key={category.id}>
+                  <option value={category.id}>
+                    {category.name}
+                  </option>
+                  {category.child_count > 0 && (
+                    <optgroup label={category.name}>
+                      {(subcategoriesByParent[category.id] || []).map((sub) => (
+                        <option key={sub.id} value={sub.id}>
+                          {sub.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                </React.Fragment>
               ))}
             </Select>
 
