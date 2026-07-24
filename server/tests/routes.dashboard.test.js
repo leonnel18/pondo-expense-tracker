@@ -18,6 +18,8 @@ const mockQueries = {
   // mounted together) and its dashboardBudgetsHandler is mounted directly
   // at GET /api/dashboard/budgets — needs a minimal stub too.
   getBudgetsWithCategories: jest.fn(),
+  // US-40 (v1.5)
+  getEngagementStats: jest.fn(),
 };
 
 jest.mock('../db/queries', () => mockQueries);
@@ -39,6 +41,7 @@ describe('routes/dashboard.js', () => {
     mockQueries.getDashboardAccounts.mockResolvedValue([]);
     mockQueries.getRecentEntries.mockResolvedValue([]);
     mockQueries.getBudgetsWithCategories.mockResolvedValue([]);
+    mockQueries.getEngagementStats.mockResolvedValue({ lifetime_transaction_count: 0, current_streak: 0 });
   });
 
   describe('GET /api/dashboard', () => {
@@ -73,6 +76,23 @@ describe('routes/dashboard.js', () => {
       // dashboard mount point itself responds.
       const res = await request(app).get('/api/dashboard/budgets');
       expect(res.status).toBeLessThan(500);
+    });
+  });
+
+  describe('GET /api/dashboard/engagement (US-40)', () => {
+    it('valid: returns 200 with lifetime count + streak', async () => {
+      mockQueries.getEngagementStats.mockResolvedValue({ lifetime_transaction_count: 42, current_streak: 5 });
+      const res = await request(app).get('/api/dashboard/engagement');
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({ lifetime_transaction_count: 42, current_streak: 5 });
+    });
+
+    it('edge case: no entries yet, returns 200 with zeros', async () => {
+      mockQueries.getEngagementStats.mockResolvedValue({ lifetime_transaction_count: 0, current_streak: 0 });
+      const res = await request(app).get('/api/dashboard/engagement');
+      expect(res.status).toBe(200);
+      expect(res.body.lifetime_transaction_count).toBe(0);
+      expect(res.body.current_streak).toBe(0);
     });
   });
 });

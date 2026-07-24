@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Hash } from 'lucide-react';
 import { getTagsReport } from '../lib/api';
 import { usePrivacy } from '../contexts/PrivacyContext';
 import { MASK_PLACEHOLDER } from '../lib/mask';
+import EmptyState from '../components/ui/EmptyState';
 
 const formatCurrency = (amount, masked) => {
   if (masked) return MASK_PLACEHOLDER;
@@ -117,9 +119,11 @@ const TagsReport = () => {
 
       {/* Tag list — sorted by total_amount desc (server-side), bar-style rows */}
       {tags.length === 0 ? (
-        <div className="text-center p-8 border border-gray-200 rounded-lg">
-          <p className="text-gray-500">No tagged entries found for this date range</p>
-        </div>
+        <EmptyState
+          icon={Hash}
+          message="No tagged entries found for this date range"
+          padding="p-8"
+        />
       ) : (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <div className="flex items-center justify-between mb-4">

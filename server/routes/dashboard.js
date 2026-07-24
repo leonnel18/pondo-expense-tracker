@@ -8,7 +8,8 @@ const {
   getIncomeBreakdown,
   getDashboardAccounts,
   getRecentEntries,
-  logAppEvent
+  logAppEvent,
+  getEngagementStats
 } = require('../db/queries');
 const { validate } = require('../middleware/validate');
 
@@ -91,6 +92,18 @@ router.get('/mom', validate(z.object({
     }
     const mom = await getDashboardMoM(from, to);
     res.json(mom);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /api/dashboard/engagement — US-40: lifetime transaction count + current
+// daily logging streak. No date-range params (it's a lifetime/all-time stat,
+// not period-scoped like the rest of this router).
+router.get('/engagement', async (req, res, next) => {
+  try {
+    const stats = await getEngagementStats();
+    res.json(stats);
   } catch (error) {
     next(error);
   }

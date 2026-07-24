@@ -1,9 +1,12 @@
 import React from 'react';
 import { usePrivacy } from '../../contexts/PrivacyContext';
+import { useColorConvention } from '../../contexts/ColorConventionContext';
 import { MASK_PLACEHOLDER } from '../../lib/mask';
+import { flowTextClass300 } from '../../lib/colorConvention';
 
 const BalanceHero = ({ kpi }) => {
   const { masked } = usePrivacy();
+  const { swapped } = useColorConvention();
 
   // Format currency — coerce null/undefined/NaN to 0 to avoid "₱NaN"
   const formatCurrency = (amount) => {
@@ -26,7 +29,7 @@ const BalanceHero = ({ kpi }) => {
         <div className="text-right">
           <div className="flex items-center justify-end">
             <span className="text-sm font-medium mr-2">This period:</span>
-            <span className={`text-sm font-bold ${kpi.net_balance >= 0 ? 'text-green-300' : 'text-red-300'}`}>
+            <span className={`text-sm font-bold ${flowTextClass300(swapped, kpi.net_balance >= 0)}`}>
               {masked ? formatCurrency(kpi.net_balance) : `${kpi.net_balance >= 0 ? '+' : ''}${formatCurrency(kpi.net_balance)}`}
             </span>
           </div>
@@ -36,15 +39,15 @@ const BalanceHero = ({ kpi }) => {
       <div className="grid grid-cols-3 gap-4 mt-6">
         <div className="bg-brand-500 bg-opacity-20 rounded-lg p-3">
           <p className="text-brand-100 text-sm">Total Income</p>
-          <p className="text-green-300 font-bold text-lg">{formatCurrency(kpi.total_income)}</p>
+          <p className={`font-bold text-lg ${flowTextClass300(swapped, true)}`}>{formatCurrency(kpi.total_income)}</p>
         </div>
         <div className="bg-brand-500 bg-opacity-20 rounded-lg p-3">
           <p className="text-brand-100 text-sm">Total Expenses</p>
-          <p className="text-red-300 font-bold text-lg">{formatCurrency(kpi.total_expenses)}</p>
+          <p className={`font-bold text-lg ${flowTextClass300(swapped, false)}`}>{formatCurrency(kpi.total_expenses)}</p>
         </div>
         <div className="bg-brand-500 bg-opacity-20 rounded-lg p-3">
           <p className="text-brand-100 text-sm">Net Balance</p>
-          <p className={`font-bold text-lg ${kpi.net_balance >= 0 ? 'text-green-300' : 'text-red-300'}`}>
+          <p className={`font-bold text-lg ${flowTextClass300(swapped, kpi.net_balance >= 0)}`}>
             {masked ? formatCurrency(kpi.net_balance) : `${kpi.net_balance >= 0 ? '+' : ''}${formatCurrency(kpi.net_balance)}`}
           </p>
         </div>

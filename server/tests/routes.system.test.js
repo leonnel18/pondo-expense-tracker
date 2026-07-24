@@ -95,5 +95,28 @@ describe('routes/system.js', () => {
       const res = await request(app).put('/api/settings').send({ last_used_account_id: 'not-a-number' });
       expect(res.status).toBe(400);
     });
+
+    it('valid (US-41): updates period_start_day to 25, returns 200', async () => {
+      mockQueries.setSetting.mockResolvedValue();
+      mockQueries.getAllSettings.mockResolvedValue({ period_start_day: '25' });
+      const res = await request(app).put('/api/settings').send({ period_start_day: 25 });
+      expect(res.status).toBe(200);
+      expect(mockQueries.setSetting).toHaveBeenCalledWith('period_start_day', '25');
+      expect(res.body.period_start_day).toBe('25');
+    });
+
+    it('invalid (US-41): period_start_day out of 1-28 range returns 400', async () => {
+      const res = await request(app).put('/api/settings').send({ period_start_day: 29 });
+      expect(res.status).toBe(400);
+    });
+
+    it('valid (US-43): updates swap_income_expense_colors, returns 200', async () => {
+      mockQueries.setSetting.mockResolvedValue();
+      mockQueries.getAllSettings.mockResolvedValue({ swap_income_expense_colors: '1' });
+      const res = await request(app).put('/api/settings').send({ swap_income_expense_colors: '1' });
+      expect(res.status).toBe(200);
+      expect(mockQueries.setSetting).toHaveBeenCalledWith('swap_income_expense_colors', '1');
+      expect(res.body.swap_income_expense_colors).toBe('1');
+    });
   });
 });

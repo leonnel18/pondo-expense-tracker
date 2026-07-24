@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { RefreshCw, RotateCcw } from 'lucide-react';
+import { RefreshCw, RotateCcw, Trash2 } from 'lucide-react';
 import { getRecycleBin, restoreItem } from '../lib/api';
 import { usePrivacy } from '../contexts/PrivacyContext';
 import { MASK_PLACEHOLDER } from '../lib/mask';
+import EmptyState from '../components/ui/EmptyState';
 
 const RecycleBin = () => {
   const { masked } = usePrivacy();
@@ -128,15 +129,11 @@ const RecycleBin = () => {
       </div>
 
       {items.length === 0 ? (
-        <div className="text-center p-12 border border-gray-200 rounded-lg">
-          <div className="mx-auto w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-            <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-            </svg>
-          </div>
-          <h3 className="text-lg font-medium text-gray-900 mb-1">Recycle Bin is empty</h3>
-          <p className="text-gray-500">Items you delete will appear here for 30 days before being permanently removed.</p>
-        </div>
+        <EmptyState
+          icon={Trash2}
+          title="Recycle Bin is empty"
+          message="Items you delete will appear here for 30 days before being permanently removed."
+        />
       ) : (
         <div className="mt-6">
           <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 rounded-lg">

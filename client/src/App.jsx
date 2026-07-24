@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { PrivacyProvider } from './contexts/PrivacyContext';
+import { ColorConventionProvider } from './contexts/ColorConventionContext';
 import { AddEntryModalProvider } from './contexts/AddEntryModalContext';
 import { AuthGate } from './components/AuthGate';
 import Layout from './components/Layout';
@@ -23,6 +24,7 @@ import SignUp from './pages/SignUp';
 import ResetPassword from './pages/ResetPassword';
 import RecycleBin from './pages/RecycleBin';
 import TagsReport from './pages/TagsReport';
+import Settings from './pages/Settings';
 
 const NotFound = () => (
   <div className="p-12 text-center">
@@ -38,6 +40,7 @@ function App() {
   return (
     <AuthProvider>
       <PrivacyProvider>
+      <ColorConventionProvider>
       <AddEntryModalProvider>
       <Router>
         <Routes>
@@ -65,11 +68,13 @@ function App() {
             <Route path="reports/tags" element={<TagsReport />} />
             <Route path="transfers/new" element={<AddTransfer />} />
             <Route path="transfers/:transferGroupId/edit" element={<EditTransfer />} />
+            <Route path="settings" element={<Settings />} />
             <Route path="*" element={<NotFound />} />
           </Route>
         </Routes>
       </Router>
       </AddEntryModalProvider>
+      </ColorConventionProvider>
       </PrivacyProvider>
     </AuthProvider>
   );

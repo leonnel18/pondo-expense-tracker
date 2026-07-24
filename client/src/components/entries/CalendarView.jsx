@@ -2,7 +2,9 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { getCalendarMonth, getSettings, updateSettings } from '../../lib/api';
 import { usePrivacy } from '../../contexts/PrivacyContext';
+import { useColorConvention } from '../../contexts/ColorConventionContext';
 import { MASK_PLACEHOLDER } from '../../lib/mask';
+import { netColorClass } from '../../lib/colorConvention';
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -34,6 +36,7 @@ const formatMonthLabel = (year, monthIdx) => {
 
 const CalendarView = ({ onDayClick }) => {
   const { masked } = usePrivacy();
+  const { swapped } = useColorConvention();
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [monthIdx, setMonthIdx] = useState(now.getMonth()); // 0-based
@@ -157,11 +160,7 @@ const CalendarView = ({ onDayClick }) => {
     }
   };
 
-  const netColor = (net) => {
-    if (net > 0) return 'text-green-600';
-    if (net < 0) return 'text-red-600';
-    return 'text-gray-400';
-  };
+  const netColor = (net) => netColorClass(swapped, net);
 
   return (
     <div className="w-full">

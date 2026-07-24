@@ -62,15 +62,27 @@ router.get('/status', async (req, res, next) => {
   }
 });
 
+// Settings keys exposed via GET/PUT /api/settings. US-41 adds
+// `period_start_day` (custom period-start day, 1-28), US-43 adds
+// `swap_income_expense_colors` (income/expense color-convention toggle) —
+// both follow the exact existing key-value convention below, no new table.
+const SETTINGS_KEYS = [
+  'last_used_account_id',
+  'first_launch_completed',
+  'calendar_view_tooltip_dismissed',
+  'privacy_mask_enabled',
+  'period_start_day',
+  'swap_income_expense_colors',
+];
+
 // GET /api/settings
 router.get('/settings', async (req, res, next) => {
   try {
     const allSettings = await getAllSettings();
     const result = {};
-    
+
     // Filter to only include the specific settings we want
-    const keysToInclude = ['last_used_account_id', 'first_launch_completed', 'calendar_view_tooltip_dismissed', 'privacy_mask_enabled'];
-    keysToInclude.forEach(key => {
+    SETTINGS_KEYS.forEach(key => {
       if (allSettings[key] !== undefined) {
         result[key] = allSettings[key];
       }
@@ -85,7 +97,13 @@ router.get('/settings', async (req, res, next) => {
 // PUT /api/settings
 router.put('/settings', async (req, res, next) => {
   try {
-    const { last_used_account_id, calendar_view_tooltip_dismissed, privacy_mask_enabled } = req.body;
+    const {
+      last_used_account_id,
+      calendar_view_tooltip_dismissed,
+      privacy_mask_enabled,
+      period_start_day,
+      swap_income_expense_colors,
+    } = req.body;
 
     if (last_used_account_id !== undefined) {
       const normalizedAccountId = parseInt(last_used_account_id, 10);
@@ -108,12 +126,33 @@ router.put('/settings', async (req, res, next) => {
       await setSetting('privacy_mask_enabled', privacy_mask_enabled.toString());
     }
 
+    // US-41: period_start_day must be an integer 1-28 — capped at 28 so it
+    // stays valid across every month (the exact overflow class already
+    // fixed in lib/date-utils.js's clampToMonth/shiftMonth; 29-31 would
+    // silently not exist in Feb/short months).
+    if (period_start_day !== undefined) {
+      const normalizedDay = parseInt(period_start_day, 10);
+      if (isNaN(normalizedDay) || normalizedDay < 1 || normalizedDay > 28) {
+        return res.status(400).json({
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'period_start_day must be an integer between 1 and 28',
+          },
+        });
+      }
+      await setSetting('period_start_day', normalizedDay.toString());
+    }
+
+    // US-43: stored as '0'/'1' string, same convention as privacy_mask_enabled.
+    if (swap_income_expense_colors !== undefined) {
+      await setSetting('swap_income_expense_colors', swap_income_expense_colors.toString());
+    }
+
     const allSettings = await getAllSettings();
     const result = {};
 
     // Filter to only include the specific settings we want
-    const keysToInclude = ['last_used_account_id', 'first_launch_completed', 'calendar_view_tooltip_dismissed', 'privacy_mask_enabled'];
-    keysToInclude.forEach(key => {
+    SETTINGS_KEYS.forEach(key => {
       if (allSettings[key] !== undefined) {
         result[key] = allSettings[key];
       }

@@ -4,9 +4,12 @@ import { ArrowLeft, Plus } from 'lucide-react';
 import { getAccounts, getCategories, createEntry } from '../lib/api';
 import { evaluateAmountExpression } from '../lib/amountExpression';
 import TagInput from '../components/entries/TagInput';
+import { useColorConvention } from '../contexts/ColorConventionContext';
+import { flowBadgeClass } from '../lib/colorConvention';
 
 const AddEntry = () => {
   const navigate = useNavigate();
+  const { swapped } = useColorConvention();
   const [accounts, setAccounts] = useState([]);
   const [categories, setCategories] = useState({ expense: [], income: [] });
   const [form, setForm] = useState({
@@ -171,7 +174,7 @@ const AddEntry = () => {
                   onClick={() => handleTypeChange('expense')}
                   className={`flex-1 py-2 px-4 rounded-md text-center font-medium ${
                     form.type === 'expense'
-                      ? 'bg-red-100 text-red-800 border border-red-200'
+                      ? flowBadgeClass(swapped, false)
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                   } transition-colors duration-150`}
                 >
@@ -182,7 +185,7 @@ const AddEntry = () => {
                   onClick={() => handleTypeChange('income')}
                   className={`flex-1 py-2 px-4 rounded-md text-center font-medium ${
                     form.type === 'income'
-                      ? 'bg-green-100 text-green-800 border border-green-200'
+                      ? flowBadgeClass(swapped, true)
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                   } transition-colors duration-150`}
                 >

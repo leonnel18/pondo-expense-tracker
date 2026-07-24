@@ -1,9 +1,12 @@
 import React from 'react';
 import { Plus } from 'lucide-react';
 import { useAddEntryModal } from '../../contexts/AddEntryModalContext';
+import { useColorConvention } from '../../contexts/ColorConventionContext';
+import { flowBadgeClass } from '../../lib/colorConvention';
 import TagInput from '../entries/TagInput';
 
 const AddEntryModal = () => {
+  const { swapped } = useColorConvention();
   const {
     isOpen,
     accounts,
@@ -39,7 +42,7 @@ const AddEntryModal = () => {
               onClick={() => handleTypeChange('expense')}
               className={`flex-1 py-2 px-4 rounded-md text-center font-medium ${
                 form.type === 'expense'
-                  ? 'bg-red-100 text-red-800 border border-red-200'
+                  ? flowBadgeClass(swapped, false)
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               } transition-colors duration-150`}
             >
@@ -50,7 +53,7 @@ const AddEntryModal = () => {
               onClick={() => handleTypeChange('income')}
               className={`flex-1 py-2 px-4 rounded-md text-center font-medium ${
                 form.type === 'income'
-                  ? 'bg-green-100 text-green-800 border border-green-200'
+                  ? flowBadgeClass(swapped, true)
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               } transition-colors duration-150`}
             >

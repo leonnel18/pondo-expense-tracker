@@ -3,11 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { Pencil, Trash2 } from 'lucide-react';
 import { usePrivacy } from '../../contexts/PrivacyContext';
+import { useColorConvention } from '../../contexts/ColorConventionContext';
 import { MASK_PLACEHOLDER } from '../../lib/mask';
+import { flowTextClass, flowBgClass100 } from '../../lib/colorConvention';
 
 const RecentEntries = ({ entries, onEdit, onDelete }) => {
   const navigate = useNavigate();
   const { masked } = usePrivacy();
+  const { swapped } = useColorConvention();
   const formatCurrency = (amount) => {
     if (masked) return MASK_PLACEHOLDER;
     return new Intl.NumberFormat('en-PH', {
@@ -38,9 +41,7 @@ const RecentEntries = ({ entries, onEdit, onDelete }) => {
           className="flex items-center justify-between p-4 bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-all duration-200"
         >
           <div className="flex items-center">
-            <div className={`flex-shrink-0 h-10 w-10 rounded-full flex items-center justify-center ${
-              entry.type === 'income' ? 'bg-green-100' : 'bg-red-100'
-            }`}>
+            <div className={`flex-shrink-0 h-10 w-10 rounded-full flex items-center justify-center ${flowBgClass100(swapped, entry.type === 'income')}`}>
               {entry.category_emoji && (
                 <span className="text-lg">{entry.category_emoji}</span>
               )}
@@ -67,9 +68,7 @@ const RecentEntries = ({ entries, onEdit, onDelete }) => {
           </div>
           <div className="flex items-center">
             <div className="text-right mr-4">
-              <p className={`text-sm font-medium ${
-                entry.type === 'income' ? 'text-green-600' : 'text-red-600'
-              }`}>
+              <p className={`text-sm font-medium ${flowTextClass(swapped, entry.type === 'income')}`}>
                 {masked ? formatCurrency(entry.amount) : `${entry.type === 'income' ? '+' : '-'}${formatCurrency(entry.amount)}`}
               </p>
               <p className="text-xs text-gray-500">

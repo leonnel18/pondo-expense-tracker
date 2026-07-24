@@ -1,22 +1,27 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Edit, Trash2, Download, List, Calendar, BarChart2, CheckCircle } from 'lucide-react';
-import { getEntries, getAccounts, getCategories, deleteEntry, exportEntries, confirmPendingEntry } from '../lib/api';
+import { Plus, Edit, Trash2, Download, List, Calendar, BarChart2, CheckCircle, ClipboardList } from 'lucide-react';
+import { getEntries, getAccounts, getCategories, deleteEntry, exportEntries, confirmPendingEntry, getSettings } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import { usePrivacy } from '../contexts/PrivacyContext';
+import { useColorConvention } from '../contexts/ColorConventionContext';
 import { useAddEntryModal } from '../contexts/AddEntryModalContext';
 import { MASK_PLACEHOLDER } from '../lib/mask';
 import { getAccessibleTint, getAccountTint } from '../lib/colorUtils';
+import { computePresetRange, normalizePeriodStartDay } from '../lib/periodPresets';
+import { flowTextClass } from '../lib/colorConvention';
 import FilterPanel from '../components/dashboard/FilterPanel';
 import CalendarView from '../components/entries/CalendarView';
 import KpiCard from '../components/dashboard/KpiCard';
 import ExpenseChart from '../components/dashboard/ExpenseChart';
 import IncomeChart from '../components/dashboard/IncomeChart';
+import EmptyState from '../components/ui/EmptyState';
 
 const Entries = () => {
   const navigate = useNavigate();
   const { user } = useAuth(); // refetch when auth state changes
   const { masked } = usePrivacy();
+  const { swapped } = useColorConvention();
   const { openAddEntryModal } = useAddEntryModal();
   const [exporting, setExporting] = useState(false);
   const [entries, setEntries] = useState([]);
@@ -25,6 +30,11 @@ const Entries = () => {
   const [loading, setLoading] = useState(true);
   const [initialLoading, setInitialLoading] = useState(true); // first load only — full-page spinner
   const [error, setError] = useState('');
+  // US-41: period-start-day-aware quick-range presets. Default display is
+  // 'all_time' — matches this page's existing default (blank from/to = no
+  // date bound); a preset is only actually applied when the user picks one.
+  const [periodStartDay, setPeriodStartDay] = useState(1);
+  const [preset, setPreset] = useState('all_time');
   const [filters, setFilters] = useState({
     type: '',
     category_id: '',
@@ -60,21 +70,33 @@ const Entries = () => {
       const results = await Promise.allSettled([
         getAccounts(),
         getCategories('expense'),
-        getCategories('income')
+        getCategories('income'),
+        getSettings()
       ]);
-      
-      const [accountsResult, expenseResult, incomeResult] = results;
-      
+
+      const [accountsResult, expenseResult, incomeResult, settingsResult] = results;
+
       if (accountsResult.status === 'fulfilled') {
         setAccounts(accountsResult.value);
       }
-      
+
       const expenseCategories = expenseResult.status === 'fulfilled' ? expenseResult.value : [];
       const incomeCategories = incomeResult.status === 'fulfilled' ? incomeResult.value : [];
       setCategories({ expense: expenseCategories, income: incomeCategories });
+
+      // US-41: only used when the user actively picks a preset — doesn't
+      // change this page's existing default (blank from/to = no date bound).
+      if (settingsResult.status === 'fulfilled') {
+        setPeriodStartDay(normalizePeriodStartDay(settingsResult.value.period_start_day));
+      }
     } catch (err) {
       setError('Failed to fetch data');
     }
+  };
+
+  const handlePresetChange = (newPreset) => {
+    setPreset(newPreset);
+    handleFilterChange({ ...filters, ...computePresetRange(newPreset, periodStartDay) });
   };
 
   const fetchFilters = () => {
@@ -305,6 +327,9 @@ const Entries = () => {
         showTypeFilter={true}
         showDateFilters={true}
         showSearch={true}
+        showPresets={true}
+        presetValue={preset}
+        onPresetChange={handlePresetChange}
       />
 
       {viewMode === 'calendar' ? (
@@ -314,9 +339,10 @@ const Entries = () => {
       ) : viewMode === 'stats' ? (
         <div className="mt-6">
           {entries.length === 0 ? (
-            <div className="text-center p-12 border border-gray-200 rounded-lg">
-              <p className="text-gray-500">No entries found for the current filters</p>
-            </div>
+            <EmptyState
+              icon={ClipboardList}
+              message="No entries found for the current filters"
+            />
           ) : (
             <div className="space-y-6">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -335,15 +361,13 @@ const Entries = () => {
           )}
         </div>
       ) : entries.length === 0 ? (
-        <div className="text-center p-12 border border-gray-200 rounded-lg mt-6">
-          <p className="text-gray-500 mb-4">No entries found</p>
-          <button
-            onClick={openAddModal}
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-brand-600 hover:text-brand-700 focus:outline-none transition-colors duration-150"
-          >
-            Add your first entry
-          </button>
-        </div>
+        <EmptyState
+          icon={ClipboardList}
+          message="No entries found"
+          actionLabel="Add your first entry"
+          onAction={openAddModal}
+          className="mt-6"
+        />
       ) : (
         <div className="mt-6">
           {loading && (
@@ -441,7 +465,7 @@ const Entries = () => {
                       {entry.note}
                     </td>
                     <td className="whitespace-nowrap px-3 py-4 text-sm text-right font-medium">
-                      <span className={entry.type === 'income' ? 'text-green-600' : 'text-red-600'}>
+                      <span className={flowTextClass(swapped, entry.type === 'income')}>
                         {masked ? formatCurrency(entry.amount) : `${entry.type === 'income' ? '+' : '-'}${formatCurrency(entry.amount)}`}
                       </span>
                     </td>

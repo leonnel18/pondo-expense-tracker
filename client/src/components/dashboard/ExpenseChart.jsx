@@ -1,7 +1,8 @@
 import React from 'react';
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { usePrivacy } from '../../contexts/PrivacyContext';
 import { MASK_PLACEHOLDER } from '../../lib/mask';
+import ChartLegend from './ChartLegend';
 
 const ExpenseChart = ({ data }) => {
   const { masked } = usePrivacy();
@@ -51,9 +52,18 @@ const ExpenseChart = ({ data }) => {
   // Calculate total for percentage calculation
   const total = chartData.reduce((sum, item) => sum + item.total, 0);
 
+  // US-35: compact colored-dot legend items, rendered above the pie via
+  // <ChartLegend/> instead of the previous in-chart recharts <Legend>.
+  const legendItems = chartData.map((item) => ({
+    id: item.id,
+    label: item.category_name,
+    color: item.color,
+  }));
+
   return (
     <div className="bg-white rounded-lg shadow-sm border border-neutral-200 p-6">
-      <h3 className="text-lg font-semibold text-neutral-900 mb-4">Expense Breakdown</h3>
+      <h3 className="text-lg font-semibold text-neutral-900 mb-1">Expense Breakdown</h3>
+      <ChartLegend items={legendItems} />
       <div className="h-64">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
@@ -71,34 +81,11 @@ const ExpenseChart = ({ data }) => {
                 <Cell key={`cell-${index}`} fill={entry.color} />
               ))}
             </Pie>
-            <Legend
-              layout="vertical"
-              verticalAlign="middle"
-              align="right"
-              content={(props) => {
-                const { payload } = props;
-                return (
-                  <ul className="flex flex-col space-y-2">
-                    {payload.map((entry, index) => (
-                      <li key={`item-${index}`} className="flex items-center">
-                        <div
-                          className="w-3 h-3 rounded-full mr-2"
-                          style={{ backgroundColor: entry.color }}
-                        ></div>
-                        <span className="text-sm text-neutral-700 truncate max-w-[100px]">
-                          {entry.value}
-                        </span>
-                        <span className="ml-auto text-sm font-medium text-neutral-900">
-                          {formatCurrency(chartData[index].total)}
-                        </span>
-                        <span className="ml-2 text-sm text-neutral-500">
-                          ({((chartData[index].total / total) * 100).toFixed(1)}%)
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                );
-              }}
+            <Tooltip
+              formatter={(value, name) => [
+                `${formatCurrency(value)} (${((value / total) * 100).toFixed(1)}%)`,
+                name,
+              ]}
             />
           </PieChart>
         </ResponsiveContainer>

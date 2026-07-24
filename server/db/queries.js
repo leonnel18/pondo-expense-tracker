@@ -2630,6 +2630,61 @@ const confirmPendingEntry = async (id) => {
   };
 };
 
+// ── Engagement stats (US-40, v1.5) ─────────────────────────────────────────
+// Lifetime transaction count + current daily logging streak, computed from
+// existing `entries` rows — no new table. Streak counts consecutive
+// calendar days (based on entries.date, the user-meaningful field, NOT
+// created_at) with at least one non-deleted entry, walking backward from
+// today; if today has no entry yet, the streak can still count as "current"
+// through yesterday (so logging once in the morning doesn't zero out a
+// streak before the user has had a chance to log today).
+const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+const getEngagementStats = async () => {
+  const { count: lifetimeCount, error: countError } = await supabase
+    .from('entries')
+    .select('*', { count: 'exact', head: true })
+    .is('deleted_at', null);
+
+  if (countError) throw countError;
+
+  const { data: dateRows, error: datesError } = await supabase
+    .from('entries')
+    .select('date')
+    .is('deleted_at', null);
+
+  if (datesError) throw datesError;
+
+  const dateSet = new Set(dateRows.map(r => r.date));
+
+  const today = new Date();
+  const todayStr = ymd(today);
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayStr = ymd(yesterday);
+
+  let streak = 0;
+  let cursor = null;
+  if (dateSet.has(todayStr)) {
+    cursor = today;
+  } else if (dateSet.has(yesterdayStr)) {
+    cursor = yesterday;
+  }
+
+  if (cursor) {
+    const d = new Date(cursor);
+    while (dateSet.has(ymd(d))) {
+      streak += 1;
+      d.setDate(d.getDate() - 1);
+    }
+  }
+
+  return {
+    lifetime_transaction_count: lifetimeCount || 0,
+    current_streak: streak,
+  };
+};
+
 module.exports = {
   // Transfer queries
   createTransfer,
@@ -2723,5 +2778,8 @@ module.exports = {
   getBalanceAdjustmentCategory,
 
   // Pending entry confirmation (US-04, v1.2)
-  confirmPendingEntry
+  confirmPendingEntry,
+
+  // Engagement stats (US-40, v1.5)
+  getEngagementStats,
 };

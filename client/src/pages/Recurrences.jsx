@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, Archive, RotateCcw } from 'lucide-react';
+import { Plus, Edit, Trash2, Archive, RotateCcw, Repeat } from 'lucide-react';
 import {
   getRecurrences, createRecurrence, updateRecurrence, deleteRecurrence,
   archiveRecurrence, restoreRecurrence, getAccounts, getCategories
 } from '../lib/api';
 import { usePrivacy } from '../contexts/PrivacyContext';
 import { MASK_PLACEHOLDER } from '../lib/mask';
+import EmptyState from '../components/ui/EmptyState';
 
 const formatCurrency = (amount, masked) => {
   if (masked) return MASK_PLACEHOLDER;
@@ -440,15 +441,13 @@ const Recurrences = () => {
       )}
 
       {recurrences.length === 0 ? (
-        <div className="text-center p-8 border border-gray-200 rounded-lg">
-          <p className="text-gray-500">No recurring items yet</p>
-          <button
-            onClick={() => setShowAddForm(true)}
-            className="mt-2 inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md text-brand-600 hover:text-brand-700 focus:outline-none transition-colors duration-150"
-          >
-            Add your first recurring item
-          </button>
-        </div>
+        <EmptyState
+          icon={Repeat}
+          message="No recurring items yet"
+          actionLabel="Add your first recurring item"
+          onAction={() => setShowAddForm(true)}
+          padding="p-8"
+        />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {recurrences.map((r) => renderRow(r, false))}

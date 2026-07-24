@@ -232,8 +232,13 @@ export const getDashboardMoM = (from, to) => {
   const params = new URLSearchParams();
   if (from) params.append('from', from);
   if (to) params.append('to', to);
-  
+
   return apiRequest(`/dashboard/mom?${params}`);
+};
+
+// Engagement stats API (US-40) — lifetime transaction count + current streak
+export const getEngagementStats = () => {
+  return apiRequest('/dashboard/engagement');
 };
 
 // Export API — triggers a real browser file download (backend returns text/csv, not JSON)

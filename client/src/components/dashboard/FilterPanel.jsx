@@ -1,15 +1,23 @@
 import React, { useState } from 'react';
 import { ChevronDown, ChevronUp, Search } from 'lucide-react';
+import TimeFilter from './TimeFilter';
 
-const FilterPanel = ({ 
-  filters, 
-  onFilterChange, 
-  onSearch, 
-  accounts, 
-  categories, 
-  showTypeFilter = true, 
-  showDateFilters = true, 
-  showSearch = true 
+const FilterPanel = ({
+  filters,
+  onFilterChange,
+  onSearch,
+  accounts,
+  categories,
+  showTypeFilter = true,
+  showDateFilters = true,
+  showSearch = true,
+  // US-41: optional prop-driven quick-range presets, rendered above the raw
+  // From/To date inputs. Off by default — only Entries.jsx opts in;
+  // Dashboard.jsx renders its own standalone <TimeFilter/> instead (see
+  // Dashboard.jsx), so it deliberately does not pass these.
+  showPresets = false,
+  presetValue,
+  onPresetChange,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -166,6 +174,15 @@ const FilterPanel = ({
               />
             </div>
           </div>
+
+          {showDateFilters && showPresets && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Quick Range
+              </label>
+              <TimeFilter value={presetValue} onChange={onPresetChange} />
+            </div>
+          )}
 
           {showDateFilters && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

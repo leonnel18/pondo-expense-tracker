@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Edit, Trash2, Scale } from 'lucide-react';
+import { Plus, Edit, Trash2, Scale, Wallet } from 'lucide-react';
 import { getAccounts, deleteAccount, getAccount, reconcileAccount } from '../lib/api';
 import ReconcileModal from '../components/accounts/ReconcileModal';
+import EmptyState from '../components/ui/EmptyState';
 
 const Accounts = () => {
   const navigate = useNavigate();
@@ -84,15 +85,12 @@ const Accounts = () => {
       </div>
 
       {accounts.length === 0 ? (
-        <div className="text-center p-12 border border-gray-200 rounded-lg">
-          <p className="text-gray-500 mb-4">No accounts yet</p>
-          <button
-            onClick={() => navigate('/accounts/add')}
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-brand-600 hover:text-brand-700 focus:outline-none transition-colors duration-150"
-          >
-            Add your first account
-          </button>
-        </div>
+        <EmptyState
+          icon={Wallet}
+          message="No accounts yet"
+          actionLabel="Add your first account"
+          onAction={() => navigate('/accounts/add')}
+        />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {accounts.map((account) => (
