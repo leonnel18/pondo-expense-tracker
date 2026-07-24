@@ -433,3 +433,46 @@ Migration `010_tags.sql` created `tags`/`entry_tags` without enabling RLS — th
 - **v2.5: fully done** — design, backend, calendar frontend, tags frontend (both parts), migrations `010` and `011` applied to production Supabase and verified via `get_advisors`. Committed (`9c05268` for the feature work; migration `011`'s local file recorded in this commit).
 - Gino separately raised, in response to the dev-pondo self-commit finding, whether a staging environment should be set up so agent work can be checked before it ever reaches prod — floated, not yet scoped or committed to.
 - **Next:** US-20 (per-counterparty Lent/Borrowed breakdown) + US-19 (named savings goals), bundled together per Gino's sequencing request, then US-38 (photo attachments), then US-37 (personalization/theming — needs its own design pass), then US-24 (AI-assisted capture) last.
+
+---
+
+## Session — v1.1 remainder + v1.2, backfilled retroactively (2026-07-18 / 2026-07-20)
+
+**Nature of this entry:** like the Post-Recon Reconciliation section above, this covers work that shipped without a live-tracked milestone-log entry at the time — reconstructed here from git history (`2edf4a0`, `05f95de`, `4e398d3`, `80532e4`, `c6d632a`) rather than a session transcript. Recorded now, during the v1.3–v1.5 session below, because it was found to be undocumented while auditing what remained of the sprint backlog.
+
+- **v1.1 remainder** (`2edf4a0`, 2026-07-18): US-27 (`app_events` log — see below, migration was written but not applied until this session) + US-31 (`parseInt` guard on account-ID persistence). US-10/US-12 (icon pickers) verified already-shipped, not rebuilt. Two standalone bugfixes same day: `05f95de` (`GET /api/auth/me` never applied its own auth middleware), `4e398d3` (3 post-launch bugs: welcome banner, dashboard balance, filter panel default).
+- **v1.2** (`80532e4`, 2026-07-20): US-02 (privacy mask), US-03 (balance reconciliation), US-04 (pending-entry flag), US-07 (mobile FAB). Follow-up fix same day (`c6d632a`): `GET /api/accounts/:id` never returned a balance, so `ReconcileModal` always showed ₱0.00.
+- **CHANGELOG.md was never updated for either** — no entries exist between `[1.1.0]` (2026-07-14) and this session. Backfilled below.
+
+## Session — v1.3, v1.4, v1.5 (2026-07-24)
+
+**Trigger:** Gino asked to trigger the Forge crew and implement v1.3 through v1.5 in full — the last of the pre-cloud Minor backlog per `docs/recon/sprint-backlog.md` §3. Orchestrated by DARKLING (Claude, this session); built by `forge-dev` (Claude Sonnet), one dispatch per sprint, run concurrently for v1.3/v1.4 and sequentially for v1.5. Architecture for US-13 (subcategories) designed by `forge-architect` first, since it needed a schema decision before any dev work could start.
+
+### v1.3 — "Test infrastructure, input ergonomics, entries-screen polish"
+
+US-32 (jest test suite — 13 suites/122 tests, from zero; `jest` had been declared in `package.json` since v1 but never actually configured or used), US-42 (arithmetic expressions in the amount field, e.g. "250+150" → 400, dependency-free parser), US-09 (Stats sub-view on Entries, reusing existing dashboard chart components), US-11 (icon-in-circle badges on transaction rows, with a WCAG 1.4.11 contrast-safe tint utility — folded in a real bug fix along the way: rows were reading a `category_emoji` field the API never returns, only `category_icon`, dead code since it was written).
+
+### v1.4 — "Categorization depth, error logging, design-system enablers"
+
+`forge-architect` wrote `docs/v1.4-categorization-depth/01-subcategory-design.md` for US-13 first — self-referencing `parent_category_id` FK on `categories` (not a separate table), app-layer one-level enforcement (matching this project's existing convention of business rules living in the route/query layer, not triggers), roll-up of subcategory totals into parent totals in the breakdown queries. `forge-dev` then built all four v1.4 stories: US-13 per the approved design, US-28 (persisted `app_errors` table, fire-and-forget insert from the central error handler), US-33 (`SettingsRow` reusable component), US-34 (compact header variant on the shared `Modal` component).
+
+**Found and fixed during DARKLING's independent review (not by the build agents):**
+1. `server/routes/recurrences.js` registered `GET /:id` before `GET /process` — a real Vercel Cron `GET /api/recurrences/process` request matched `/:id` first (id="process") and 404'd before ever reaching the handler. The recurring-transactions cron had likely never fired via its actual trigger since v2.3. Reordered to match the already-correct `/due`-before-`/:id` pattern, added a regression test (both GET and POST now covered).
+2. **Migration `012_app_events.sql` (US-27) had never been applied to production**, despite being marked done in the 2026-07-18 backfill session above — confirmed via direct `information_schema` query against Supabase (table didn't exist). The event log had been silently no-op'ing since it shipped. Applied this session, along with `015_category_subcategories.sql` and `016_app_errors.sql`.
+
+v1.3+v1.4 committed together as `939bbd6` (the two sprints' `forge-dev` dispatches ran concurrently and both touched `AddEntry.jsx`/`EditEntry.jsx`; verified by direct read that neither clobbered the other before committing). Migrations 012/015/016 applied to production Supabase, `get_advisors` checked clean (only the project's own established "RLS enabled, no policy" INFO-level convention, no new ERROR-level findings), then pushed.
+
+### v1.5 — "Habit reinforcement, close out the pre-cloud Minor backlog"
+
+**Scope discovery before build:** US-41 ("custom period-start day, respected across all time-filter presets") assumed named presets already worked. They didn't — `TimeFilter.jsx` has defined `this_month`/`last_month`/`last_3_months`/`this_year`/`all_time` since v1 but was never imported anywhere; `Dashboard.jsx`/`Entries.jsx` only ever exposed raw From/To date pickers. There was also no `/settings` page at all — `SettingsRow.jsx` (built last sprint) had been an enabler with nothing to enable yet. DARKLING flagged both gaps to `forge-dev` before dispatch rather than let the story get built against a false assumption.
+
+Built: a new `/settings` page (wired into both `Sidebar` and `BottomNav`), a working preset system respecting the period-start-day setting (`periodPresets.js`/`dateUtils.js`, deliberately reusing the same overflow-safe month-shift approach already fixed twice server-side rather than reintroducing that bug client-side), US-40 (logging streak + lifetime count), US-36 (`EmptyState` component replacing 5 separate ad-hoc empty-state blocks), US-35 (`ChartLegend` component replacing the bulky in-pie recharts legend, with a new hover tooltip so the amount/% detail wasn't lost), US-43 (`swap_income_expense_colors` setting + `ColorConventionContext`, applied to genuine income/expense-identity colors only — not to unrelated good/bad semantics like KPI trend arrows). No migration needed — both new settings ride the existing settings key-value table. 127/127 tests passing, clean build, committed as `faf3aa6` and pushed.
+
+**Flagged, not silently decided:** `BottomNav` grows from 5 to 6 items with Settings added — its own code comment said "max 5 for thumb reach." Added per explicit instruction to add the nav entry to both Sidebar and BottomNav; left for `forge-ux`/`forge-qa` to revisit if 6 proves too tight on a real device.
+
+### Status snapshot
+
+- **v1.1 (full), v1.2, v1.3, v1.4, v1.5: all complete, independently verified, migrations applied, pushed to `origin/main`.** Pre-cloud Minor backlog (§3 of the sprint backlog) is now fully cleared, matching the original roadmap's intended sequencing — even though it was built after v2.0–v2.5 rather than before, per the sequencing deviation already recorded above.
+- **Remaining from the approved roadmap:** v2.4 (US-18, CSV import), v2.6 (US-24, AI-assisted capture), v2.7 (US-25 push reminders + US-19 savings goals), v2.8 (US-20 counterparty + US-38 photos + US-39 backup/device-transfer), v2.9 (US-22 household sharing — flagged by `recon-po` as worth reprioritizing higher, not yet revisited by Gino), v2.10 (US-21 multi-currency), v2.11 (US-37 personalization/theming). Excluded: US-26 (de-scoped). Deferred: F-20 (native widget).
+- **Versions bumped:** `client/package.json` and `server/package.json` → `1.5.0` (was `1.1.0`, unchanged since 2026-07-14 despite v1.2–v1.5 all shipping since). `CHANGELOG.md` backfilled with `[1.2.0]` through `[1.5.0]`.
+- **Open items carried forward, still unresolved:** `tmp/idea-pool-data.md`'s unverified origin (flagged for Gino to check personally), US-22's stale P3 priority tag, `artifacts/03-SAD.md` still describing `better-sqlite3` instead of the live Supabase/Postgres reality, `artifacts/06-runbook.md` still describing the old Windows/localhost self-hosted deploy instead of Vercel+Supabase.

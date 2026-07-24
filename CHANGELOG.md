@@ -5,6 +5,58 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2026-07-24
+
+### Added
+- **Settings page** (`/settings`) — didn't exist before this release; wired into both desktop sidebar and mobile bottom nav.
+- **US-41: Custom period-start day + working time-filter presets** — This Month/Last Month/Last 3 Months/This Year/All Time presets on Dashboard and Entries, respecting a configurable 1-28 period-start day. (The presets existed in code since v1 but were never wired into any page until now.)
+- **US-40: Logging streak + lifetime transaction count**, shown on the Settings page.
+- **US-36: Reusable `EmptyState` component**, replacing 5 separate ad-hoc empty-state blocks across Entries, Accounts, Recycle Bin, Recurrences, Budgets, and Tags Report.
+- **US-35: Compact chart legend** on the expense/income breakdown charts, replacing the old in-pie legend; added a hover tooltip so amount/% detail isn't lost.
+- **US-43: Income/expense color-swap setting**, for households whose cultural convention treats red as growth rather than loss.
+
+### Fixed
+- Recurring-transactions cron endpoint (`GET /api/recurrences/process`) was unreachable via its real Vercel Cron trigger — a route-ordering bug meant `GET /:id` always matched first. The cron had likely never successfully fired since it was built in v2.3.
+- Migration `012_app_events.sql` (US-27, from the 2026-07-18 session below) had been written but never applied to production — the event log had been silently doing nothing since it shipped.
+
+---
+
+## [1.4.0] - 2026-07-24
+
+### Added
+- **US-13: One-level subcategories** — self-referencing `parent_category_id` on `categories`, two-level category picker, subcategory totals roll up into their parent's total in breakdown reports.
+- **US-28: Persisted `app_errors` table** — the central error handler now logs to a real table alongside `console.error`, instead of losing everything on restart.
+- **US-33: Reusable `SettingsRow` component** (enabler, not yet wired into a page this release).
+- **US-34: Compact modal variant** for short single-field forms, alongside the existing footer-button modal.
+
+---
+
+## [1.3.0] - 2026-07-24
+
+### Added
+- **US-32: Real test suite** — 13 suites, 122 tests, covering server boot, CORS/proxy config, and every route handler's valid/invalid paths. `jest` had been declared as the test runner since v1 but was never actually configured or used.
+- **US-42: Arithmetic expressions in the amount field** (e.g. `250+150` evaluates to `400` before submit).
+- **US-09: Stats view on Entries**, alongside the existing List/Calendar views.
+- **US-11: Icon-in-circle badges** on transaction rows, replacing bare inline emoji, with a WCAG 1.4.11 contrast-safe color utility.
+
+### Fixed
+- Transaction rows were reading a `category_emoji` API field that was never actually returned (only `category_icon` was) — dead code since it was written, now corrected.
+
+---
+
+## [1.2.0] - 2026-07-20
+
+### Added
+- **US-02: App-wide privacy mask toggle.**
+- **US-03: Balance reconciliation** via an auto-created adjustment entry.
+- **US-04: Pending-entry flag**, excluded from balances until confirmed.
+- **US-07: Persistent mobile FAB** for quick entry capture.
+
+### Fixed
+- `GET /api/accounts/:id` never returned a balance, so the reconciliation modal always displayed ₱0.00.
+
+---
+
 ## [1.1.0] - 2026-07-14
 
 ### Added
